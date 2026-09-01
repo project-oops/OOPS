@@ -1,0 +1,458 @@
+#!/usr/bin/env bash
+# oops - one entry point for the four projects.
+#
+# Every project carries its own `bin/<project>` with the same verbs, and this relays to it.
+# So `oops test selfish` and `selfish/bin/selfish test` are one command reached two ways,
+# and this script knows nothing about how any project builds - which is the point. It used
+# to hold a table mapping four verbs onto four projects' internals, and a table that has to
+# know what `make check` means in obSCEne is a second copy of obSCEne's build, kept
+# somewhere obSCEne's authors will never look.
+#
+# The verbs are the same everywhere. What differs is only what a project adds beyond them:
+# `oops pkg` exists because obSCEne ships a package, and orbistoun's own entry point carries
+# `run`, `doctor` and `sweep`, which are the emulator rather than its build.
+#
+#   oops build  [project...]      build artefacts
+#   oops test   [project...]      run tests
+#   oops lint   [project...]      lints at -D warnings
+#   oops fmt    [project...]      format in place
+#   oops check  [project...]      each project's own full gate - what its CI runs
+#   oops clean  [project...]      remove build output
+#   oops doc    [project...]      build the API docs
+#   oops pkg                      obSCEne's installable package. The variants are
+#                                 make targets: oops exec "make pkg-min" obscene
+#   oops gates                    the meta-level checks: decision logs, markdown
+#                                 links, the child repositories' workflow preambles,
+#                                 and the house dash style
+#   oops all                      gates + check across the four. The whole thing.
+#   oops bootstrap [project...]   fetch the four, or only the ones named. What CI
+#                                 uses: clone the meta without submodules, then
+#                                 ask for what that job actually builds.
+#   oops git <args...>            run git across the meta and the four. Any verb -
+#                                 `oops git status -s`, `oops git remote -v`.
+#   oops status                   branch and working-tree state, meta + four
+#   oops doctor                   is this machine able to build all four
+#   oops exec "<cmd>" [proj...]   run an arbitrary command in each project
+#   oops list                     the four, where they are, whether present
+#
+# Projects are named in full or by prefix, so `oops build orb` is `oops build
+# orbistoun`. Omit the project to mean all four.
+#
+# A failing project does not stop the others. Failures are collected and reported
+# at the end and the exit code is non-zero if anything failed, so one run tells
+# you everything that is broken rather than only the first thing.
+#
+# Cross-platform bash: Linux, macOS, and Git Bash on Windows. obSCEne's C targets
+# need clang and lld, which on Windows means WSL; this detects that and re-enters
+# through WSL rather than failing with a compiler error that reads as a code
+# fault. Set OOPS_NO_WSL=1 to refuse instead of delegating.
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(dirname "$HERE")"
+# `oops-libs` is here because every one of the four depends on it, so a change to it that
+# breaks a consumer should be caught by the same command that checks the consumers. It is a
+# library rather than a project, which is why it is last and why the README calls OOPS four.
+PROJECTS="orbistoun obscene prosperous selfish oops-libs"
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    BOLD=$'\033[1m'; RED=$'\033[31m'; GREEN=$'\033[32m'; DIM=$'\033[2m'; OFF=$'\033[0m'
+else
+    BOLD=""; RED=""; GREEN=""; DIM=""; OFF=""
+fi
+
+die() { printf '%serror:%s %s\n' "$RED" "$OFF" "$*" >&2; exit 1; }
+step() { printf '\n%s=== %s%s\n' "$BOLD" "$*" "$OFF"; }
+note() { printf '%s%s%s\n' "$DIM" "$*" "$OFF"; }
+
+is_windows() {
+    case "$(uname -s 2>/dev/null || echo unknown)" in
+        MINGW*|MSYS*|CYGWIN*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# obSCEne's C targets need clang and lld. Under Git Bash there is usually neither,
+# so re-enter through WSL rather than emitting a compiler error that reads as a
+# code fault. obscene/CLAUDE.md documents why the split exists at all.
+needs_wsl() {
+    is_windows || return 1
+    command -v clang >/dev/null 2>&1 && return 1
+    return 0
+}
+
+run_via_wsl() {
+    local dir="$1"; shift
+    [ -n "${OOPS_NO_WSL:-}" ] && die "obSCEne needs clang and lld; this shell has neither and OOPS_NO_WSL is set"
+    command -v wsl.exe >/dev/null 2>&1 || die "obSCEne needs clang and lld. Install WSL, or run this from Linux"
+    # `cygpath -m` and not `-w`: the backslashes in a `C:\...` path are eaten
+    # before wslpath ever sees them, and it silently answers "C:gitOOPSobscene"
+    # rather than failing. The forward-slash form survives the trip.
+    local wpath
+    wpath="$(wsl.exe wslpath -a "$(cygpath -m "$dir")" 2>/dev/null | tr -d '\r')"
+    # Fall back to the default mount root. wslpath is preferred because it honours
+    # a non-default `root =` in wsl.conf, which this cannot know about.
+    case "$wpath" in
+        /*) ;;
+        *) wpath="$(printf '%s' "$dir" | sed 's|^/\([a-zA-Z]\)/|/mnt/\1/|')" ;;
+    esac
+    [ -n "$wpath" ] || die "could not translate $dir into a WSL path"
+    note "via WSL: $wpath"
+    # MSYS_NO_PATHCONV, or Git Bash rewrites the `/mnt/c/...` argument on its way
+    # to a Windows executable and wsl.exe is handed
+    # `C:/Program Files/Git/mnt/c/...`. It then fails with ERROR_PATH_NOT_FOUND
+    # for a directory that exists, having never been asked about the real one.
+    # `. ~/.cargo/env` because a login shell in WSL does not necessarily have
+    # rustup's bin directory on PATH, and a distro-packaged /usr/bin/cargo then
+    # shadows it. That cargo is old enough to refuse a version-4 lock file, and it
+    # says so as a lock-file parse error rather than as a version problem. This is
+    # rustup's own file, not a guess at what it does.
+    MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe --cd "$wpath" -- \
+        bash -lc 'if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi; '"$*"
+}
+
+FAILED=""
+# Run a command inside a project, print a header, never stop the loop.
+run_in() {
+    local proj="$1" label="$2"
+    shift 2
+    local dir="$ROOT/$proj"
+    if [ ! -d "$dir" ]; then
+        printf '%s%-11s skipped - not checked out (see docs/PUBLISHING.md)%s\n' "$DIM" "$proj" "$OFF"
+        return 0
+    fi
+    step "$proj: $label"
+    local status=0
+    if [ "$proj" = "obscene" ] && needs_wsl; then
+        run_via_wsl "$dir" "$*" || status=$?
+    else
+        ( cd "$dir" && eval "$*" ) || status=$?
+    fi
+    if [ "$status" -ne 0 ]; then
+        printf '%s%s %s failed (exit %s)%s\n' "$RED" "$proj" "$label" "$status" "$OFF"
+        FAILED="$FAILED $proj:$label"
+    fi
+    return 0
+}
+
+report() {
+    if [ -n "$FAILED" ]; then
+        printf '\n%sfailed:%s' "$RED" "$OFF"
+        for f in $FAILED; do printf ' %s' "$f"; done
+        printf '\n'
+        exit 1
+    fi
+    printf '\n%sall good%s\n' "$GREEN" "$OFF"
+}
+
+# Expand user-supplied names to full project names, by exact match or prefix.
+resolve() {
+    if [ "$#" -eq 0 ]; then printf '%s' "$PROJECTS"; return 0; fi
+    local out="" want hit p
+    for want in "$@"; do
+        hit=""
+        for p in $PROJECTS; do
+            case "$p" in "$want"*) hit="$p"; break ;; esac
+        done
+        [ -n "$hit" ] || die "unknown project '$want'. One of: $PROJECTS"
+        out="$out $hit"
+    done
+    printf '%s' "${out# }"
+}
+
+# How a verb reaches a project.
+#
+# **Every project owns its own entry point**, `<project>/bin/<project>`, carrying the same
+# verbs as this script. So this relays rather than knowing anything: how obSCEne builds is
+# obSCEne's business, and a table here that also knew would be a second copy to drift.
+#
+# `bash ./bin/x` rather than `./bin/x` on purpose - Windows checkouts do not preserve the
+# executable bit, and a relay that works everywhere except the machine most of this is
+# written on is not much of a relay.
+cmd_for() {
+    local proj="$1" verb="$2"
+    if [ -f "$ROOT/$proj/bin/$proj" ]; then
+        printf 'bash ./bin/%s %s' "$proj" "$verb"
+        return 0
+    fi
+    # The fallback, for a project that has not grown an entry point yet. All five have one
+    # now - oops-libs was the last, so nothing reaches this today. Kept, and deliberately
+    # generic rather than a per-project table: a table listing projects that all have their
+    # own script is dead code that still looks authoritative.
+    [ -f "$ROOT/$proj/Cargo.toml" ] || return 1
+    case "$verb" in
+        build) echo "cargo build --release --workspace" ;;
+        test)  echo "cargo test --workspace" ;;
+        lint)  echo "cargo clippy --all-targets -- -D warnings" ;;
+        fmt)   echo "cargo fmt --all" ;;
+        check) echo "cargo fmt --all --check && cargo clippy --all-targets -- -D warnings && cargo test --workspace" ;;
+        clean) echo "cargo clean" ;;
+        doc)   echo "cargo doc --no-deps --workspace" ;;
+        *) return 1 ;;
+    esac
+}
+
+verb_over_projects() {
+    local verb="$1" p c
+    shift
+    for p in $(resolve "$@"); do
+        c="$(cmd_for "$p" "$verb")" || die "no '$verb' defined for $p"
+        run_in "$p" "$verb" "$c"
+    done
+    report
+}
+
+# Proxy any git verb across the meta and the four, rather than hardcoding a list
+# of the ones somebody thought of. `oops git status -s`, `oops git log --oneline
+# -1`, `oops git remote -v` all work without this script knowing what they mean.
+#
+# Deliberately NOT `git submodule foreach`: that runs only in submodules, so it
+# skips the meta repo - and before the four are published they are ordinary
+# directories rather than submodules, where it would find nothing at all. Walking
+# the checkouts works identically either way. `bootstrap` is where being a
+# submodule actually matters, and that is the one place it is used.
+git_proxy() {
+    [ "$#" -ge 1 ] || die 'git needs arguments: oops git status -s'
+    local d name
+    for name in "(meta)" $PROJECTS; do
+        if [ "$name" = "(meta)" ]; then d="$ROOT"; else d="$ROOT/$name"; fi
+        [ -d "$d/.git" ] || continue
+        step "$name: git $*"
+        git -C "$d" "$@" || FAILED="$FAILED $name:git"
+    done
+    report
+}
+
+# What each project needs checked out beside it, by path dependency. Not a guess:
+# these are the `path = "../..."` entries in the Cargo.toml files, and a build
+# without them fails as a missing directory rather than as a missing dependency.
+#
+# **All four take oops-libs.** That was not true when this table was written -
+# prosperous was the only consumer, and selfish and orbistoun were listed as
+# needing nothing. Both grew a `path = "../oops-libs/..."` afterwards and this
+# table did not follow, so `oops bootstrap selfish` fetched nothing and the build
+# then failed on a directory rather than on a dependency: exactly the error this
+# table exists to prevent. A table that has to be updated by hand when a manifest
+# changes will eventually be wrong; it is written down here anyway because the
+# alternative is parsing four manifests before any of them are checked out.
+#
+# oops-libs itself depends on nothing, which is what makes it safe to be the
+# common leaf.
+deps_for() {
+    case "$1" in
+        obscene)    echo "selfish prosperous oops-libs" ;;
+        orbistoun)  echo "oops-libs" ;;
+        prosperous) echo "oops-libs" ;;
+        selfish)    echo "oops-libs" ;;
+        *)          echo "" ;;
+    esac
+}
+
+# Expand a set of projects to include everything they depend on, transitively.
+with_deps() {
+    local out="$1" added=1 p d
+    while [ "$added" -eq 1 ]; do
+        added=0
+        for p in $out; do
+            for d in $(deps_for "$p"); do
+                case " $out " in *" $d "*) ;; *) out="$out $d"; added=1 ;; esac
+            done
+        done
+    done
+    printf '%s' "$out"
+}
+
+# The published repository name for a project directory.
+#
+# Two spellings for one thing, and the cost is paid here rather than everywhere else.
+# The directories are lower-case because obSCEne's Makefile resolves `../selfish/...`
+# in that case and a path on a Linux runner is not case-insensitive; the repositories
+# are spelled the way the projects are. docs/PUBLISHING.md pairs them too.
+repo_name() {
+    case "$1" in
+        orbistoun)  echo "Orbistoun" ;;
+        obscene)    echo "obSCEne" ;;
+        prosperous) echo "Prosperous" ;;
+        selfish)    echo "SELFish" ;;
+        oops-libs)  echo "oops-libs" ;;
+        *) return 1 ;;
+    esac
+}
+
+# Who to clone siblings from, when there is nothing local to clone them from.
+#
+# Asked of the meta repository's own origin rather than hardcoded, so a fork bootstraps
+# from the fork. `actions/checkout` always sets an origin, which is why CI needs no
+# configuration for this. OOPS_OWNER overrides, for a checkout with no remote - which is
+# every checkout here until the five are pushed.
+owner_of() {
+    if [ -n "${OOPS_OWNER:-}" ]; then printf '%s' "$OOPS_OWNER"; return 0; fi
+    local url
+    url="$(git -C "$ROOT" remote get-url origin 2>/dev/null)" || return 1
+    # Both forms: https://host/owner/repo(.git) and git@host:owner/repo(.git).
+    url="${url%.git}"
+    url="${url%/}"
+    url="${url%/*}"
+    printf '%s' "${url##*[:/]}"
+}
+
+# Fetch the four, or a named subset plus whatever that subset needs. This is the CI
+# entry point: a workflow clones the meta with no submodules and asks for what its
+# job actually builds, rather than paying for five checkouts to build one.
+#
+# Three ways a sibling can arrive, tried in that order:
+#
+#   1. it is already there   - CI puts the project under test in place with the checkout
+#                              action, and asking git to initialise a submodule over the
+#                              top of that is a fight nobody wins
+#   2. `git submodule`       - once the five are published and wired up
+#   3. `git clone`           - before then, and that is the state today: there is no
+#                              .gitmodules, and until this could clone, every child
+#                              repository's CI failed here on a sibling it could see the
+#                              name of and had no way to fetch
+bootstrap() {
+    local want p name owner rc
+    want="$(with_deps "$(resolve "$@")")"
+    owner="$(owner_of)" || owner=""
+
+    for p in $want; do
+        if [ -d "$ROOT/$p/.git" ]; then
+            printf '  %sok%s   %s already present\n' "$GREEN" "$OFF" "$p"
+            continue
+        fi
+        step "bootstrap $p"
+        rc=0
+        if [ -f "$ROOT/.gitmodules" ] && grep -q "path = $p\$" "$ROOT/.gitmodules"; then
+            # --depth 1: CI wants the tree, never the history.
+            git -C "$ROOT" submodule update --init --depth 1 -- "$p" || rc=$?
+        elif [ -n "$owner" ] && name="$(repo_name "$p")"; then
+            note "not a submodule yet - cloning $owner/$name (docs/PUBLISHING.md)"
+            git clone --depth 1 "https://github.com/$owner/$name" "$ROOT/$p" || rc=$?
+        else
+            printf '  %s--%s   %s absent, and no owner to clone it from.\n' "$RED" "$OFF" "$p"
+            printf '       Set OOPS_OWNER, or give this checkout an origin remote.\n'
+            rc=1
+        fi
+        [ "$rc" -eq 0 ] || FAILED="$FAILED $p:bootstrap"
+    done
+    report
+}
+
+gates() {
+    # All four are shell, like the entry points they sit beside. The collection is Rust, C and
+    # bash - 411 Rust files, 103 C, 50 shell, and no Python in any of the five projects, which
+    # obSCEne's CLAUDE.md states outright. Four files in tools/ were a worse guide to the house
+    # language than the five hundred beside them, and for a while they were the guide followed.
+    step "meta: decision logs"
+    bash "$ROOT/tools/check-decisions.sh" || FAILED="$FAILED meta:decisions"
+    step "meta: markdown links"
+    bash "$ROOT/tools/check-links.sh" || FAILED="$FAILED meta:links"
+    # The third thing that can only be answered from here: a child repository's workflow
+    # checks *itself* out, and whether the collection is around it when it does is not
+    # visible from inside that repository. Five of them were flat checkouts that could not
+    # have built, and nothing said so - these workflows have never run.
+    # These two are shell, like the entry points they sit beside. The collection is Rust, C
+    # and bash; there is no Python in any of the five projects, and adding some here to check
+    # them would be a fifth language nobody asked for.
+    step "meta: workflow preambles"
+    bash "$ROOT/tools/check-workflows.sh" || FAILED="$FAILED meta:workflows"
+    # House prose style, which is only enforceable from here: the convention is one
+    # collection-wide rule, and a per-project copy of it would be five things to drift.
+    step "meta: dashes"
+    bash "$ROOT/tools/check-dashes.sh" || FAILED="$FAILED meta:dashes"
+}
+
+status_all() {
+    local d name branch dirty state
+    # The meta and the four, not every git directory under the root - anything
+    # else here is somebody's in-progress work and not this script's business.
+    for name in "(meta)" $PROJECTS; do
+        if [ "$name" = "(meta)" ]; then d="$ROOT"; else d="$ROOT/$name"; fi
+        if [ ! -d "$d/.git" ]; then
+            printf '%-12s %s\n' "$name" "not a checkout"
+            continue
+        fi
+        # `git branch --show-current` rather than `rev-parse --abbrev-ref HEAD`:
+        # with no commits yet the latter prints "HEAD" *and* fails, so a fallback
+        # lands on the same line and the column reads "HEAD\n-".
+        branch="$(git -C "$d" branch --show-current 2>/dev/null)"
+        [ -n "$branch" ] || branch="(detached)"
+        dirty="$(git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+        if [ "$dirty" = "0" ]; then state="clean"; else state="$dirty changed"; fi
+        printf '%-12s %-20s %s\n' "$name" "$branch" "$state"
+    done
+}
+
+doctor() {
+    local rc=0 PY p
+    have() {
+        if command -v "$1" >/dev/null 2>&1; then
+            printf '  %sok%s   %-7s %s\n' "$GREEN" "$OFF" "$1" "$("$1" --version 2>/dev/null | head -1)"
+        else
+            printf '  %s--%s   %-7s missing - %s\n' "$RED" "$OFF" "$1" "$2"; return 1
+        fi
+    }
+
+    step "toolchain"
+    have cargo "the three Rust projects need it: https://rustup.rs" || rc=1
+    have git "needed to resolve what is ignored" || rc=1
+
+    step "obSCEne's C toolchain"
+    if needs_wsl; then
+        if command -v wsl.exe >/dev/null 2>&1; then
+            note "  no clang in this shell; obSCEne will be built through WSL"
+        else
+            printf '  %s--%s   no clang and no WSL - obSCEne cannot be built here\n' "$RED" "$OFF"; rc=1
+        fi
+    else
+        have clang "obSCEne compiles freestanding C with it" || rc=1
+        have make "obSCEne is a Makefile" || rc=1
+    fi
+
+    step "the four"
+    for p in $PROJECTS; do
+        if [ -d "$ROOT/$p" ]; then
+            printf '  %sok%s   %s\n' "$GREEN" "$OFF" "$p"
+        else
+            printf '  %s--%s   %s not checked out - see docs/PUBLISHING.md\n' "$RED" "$OFF" "$p"; rc=1
+        fi
+    done
+
+    if [ "$rc" -eq 0 ]; then printf '\n%sready%s\n' "$GREEN" "$OFF"
+    else printf '\n%ssomething is missing%s\n' "$RED" "$OFF"; fi
+    return "$rc"
+}
+
+# The header comment above IS the usage text, so the two cannot drift. The range
+# ends at the line before `set -euo`, found rather than hardcoded - a hardcoded
+# number silently truncates the help the next time a verb is documented.
+usage() {
+    local last
+    last=$(( $(grep -n '^set -euo' "$0" | head -1 | cut -d: -f1) - 1 ))
+    sed -n "2,${last}p" "$0" | sed 's/^#\{1,\} \{0,1\}//'
+}
+
+cmd="${1:-}"
+if [ "$#" -gt 0 ]; then shift; fi
+case "$cmd" in
+    build|test|lint|fmt|check|clean|doc) verb_over_projects "$cmd" "$@" ;;
+    pkg)     verb_over_projects pkg "${@:-obscene}" ;;
+    git)     git_proxy "$@" ;;
+    bootstrap) bootstrap "$@" ;;
+    gates)   gates; report ;;
+    all)     gates; for p in $(resolve); do run_in "$p" check "$(cmd_for "$p" check)"; done; report ;;
+    status)  status_all ;;
+    doctor)  doctor ;;
+    list)
+        for p in $PROJECTS; do
+            if [ -d "$ROOT/$p" ]; then s="present"; else s="absent"; fi
+            printf '%-12s %-44s %s\n' "$p" "$ROOT/$p" "$s"
+        done ;;
+    exec)
+        [ "$#" -ge 1 ] || die 'exec needs a command: oops exec "git status -s"'
+        c="$1"; shift
+        for p in $(resolve "$@"); do run_in "$p" "exec" "$c"; done
+        report ;;
+    ""|-h|--help|help) usage ;;
+    *) die "unknown command '$cmd'. Try: oops --help" ;;
+esac

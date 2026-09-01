@@ -1,0 +1,12 @@
+# Exact lines allowed to keep an em-dash or en-dash. Not patterns: a pattern forgives the
+# next one too. Each entry is a fact rather than prose, and says which.
+#
+# The decision-log parser's strip set. The dash is a character it must match.
+if not e.rest.strip(" -—"):
+#
+# The convention itself, which has to quote the strip set to explain it.
+- **In a string literal.** `tools/check-decisions.sh` strips `" -—"` because it parses
+#
+# Lifted verbatim from another project's source, inside a decision entry.
+// RuntimeLinker.cpp:1041 — StartModule
+// RuntimeLinker.cpp:93 — no guard

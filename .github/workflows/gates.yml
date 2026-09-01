@@ -1,0 +1,65 @@
+# The four checks that cannot be answered from inside a single project.
+#
+# Two of them need all five checked out at once - `check-links.sh` resolves
+# `../selfish/docs/...` from orbistoun, and `check-decisions.sh` compares independently-
+# numbered logs. The third, `check-workflows.sh`, needs the opposite: a child repository's
+# workflow checks *itself* out, and whether the collection is around it when it does is
+# invisible from inside that repository. Five workflows were flat checkouts that could not
+# have built, and nothing said so.
+#
+# That is the whole reason `tools/` exists here rather than five times over, and it is also
+# why this workflow is the only one in this repository. `check-dashes.sh` joins them for the
+# same reason: the house prose style is one collection-wide rule, not five.
+#
+# Conventions section 8 says a gate that never fires is indistinguishable from one that
+# passes. Until this file existed, both of these were run by hand or not at all, which is the
+# same defect one step earlier: a gate nobody runs is not a gate.
+name: gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # The submodules are pinned revisions, so this repository can go green and stay green while
+  # a project moves underneath it. A weekly run against whatever the pins point at is the only
+  # thing that notices.
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Both checkers need every repository present. Until they are submodules this
+          # resolves to nothing and the guard below says so rather than passing an empty run.
+          submodules: recursive
+
+      # `check-links.sh` reads the tracked set with `git ls-files`, so the projects have to be
+      # real checkouts rather than unpacked directories.
+      - name: The four are present
+        run: |
+          missing=""
+          for p in orbistoun obscene prosperous selfish oops-libs; do
+            if [ ! -d "$p/docs" ]; then missing="$missing $p"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "not checked out:$missing"
+            echo ""
+            echo "Both gates span every repository and neither means anything without them."
+            echo "If the submodules are not wired up yet, see docs/PUBLISHING.md - this"
+            echo "workflow is expected to fail until they are, and failing is the honest"
+            echo "answer rather than skipping."
+            exit 1
+          fi
+
+      # Through `bin/oops` rather than calling the two checkers directly, so the
+      # command CI runs is the command a person runs. The moment they differ, one
+      # of them is untested - and the entrypoint is the half nobody would notice.
+      - name: Gates
+        run: ./bin/oops gates

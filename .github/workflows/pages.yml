@@ -1,0 +1,75 @@
+name: Deploy landing page to GitHub Pages
+
+# Publishes the collection's own landing page and the shared documents -
+# conventions, architecture, building, publishing - to
+# project-oops.github.io/OOPS/.
+#
+# This repository holds `tools/build-docs.sh` and the other four check it out to
+# render their docs. Here it is already present, so there is nothing to fetch.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/web/**"
+      - "docs/**"
+      - "tools/build-docs.sh"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build site bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Assemble bundle
+        # No accent is passed the way the four projects pass theirs: this page
+        # has no single colour, because it is where all four meet. The docs it
+        # renders take the muted neutral the script falls back to.
+        run: |
+          set -euo pipefail
+          mkdir -p site/assets
+          cp -r frontend/web/. site/
+          cp assets/logo.svg site/assets/
+
+          # The navigation is the four project icons, so they are fetched from
+          # the projects rather than copied in here - a vendored icon goes stale
+          # the first time one of them is redrawn, and nothing would say so.
+          # `-f` so a missing icon fails the build instead of shipping a gap.
+          for pair in Orbistoun:orbistoun obSCEne:obscene Prosperous:prosperous SELFish:selfish; do
+            repo="${pair%%:*}"; name="${pair##*:}"
+            curl -fsSL -o "site/assets/$name.svg" \
+              "https://raw.githubusercontent.com/${{ github.repository_owner }}/$repo/main/assets/logo.svg"
+          done
+
+          bash tools/build-docs.sh . site "#8b9096" "OOPS"
+          du -sh site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
