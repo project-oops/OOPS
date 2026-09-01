@@ -187,6 +187,35 @@ Prosperous too, so a flat checkout does not build. Cloning the meta shallow and 
 `bootstrap` pull only the needed siblings is why a one-project job does not pay for five
 checkouts.
 
+
+### A private sibling needs a token
+
+All six repositories are public, so `bootstrap` clones a sibling with no credential and this
+section is here for the day one of them is not.
+
+They were private for about twenty minutes, and it broke immediately: a workflow's own
+`GITHUB_TOKEN` is scoped to the single repository it runs in, so obSCEne named SELFish and
+Prosperous correctly and then failed with `could not read Username for 'https://github.com'`,
+while `oops-libs` arrived because it was still public. Two other things went with it, and both
+are worth knowing before anybody tries again: **GitHub Pages does not serve a private repository
+on a free plan**, so all four sites went dark, and the four `pages.yml` workflows are gated on
+`github.event.repository.visibility == 'public'` so they skip rather than fail red.
+
+`bootstrap` reads **`OOPS_CI_TOKEN`** from the environment and uses it for the clone when it is
+set, then rewrites the remote to the plain URL so the credential is not left in `.git/config`.
+Every step that calls `bootstrap` passes it:
+
+```yaml
+      - name: Siblings this build needs
+        run: OOPS/bin/oops bootstrap obscene
+        env:
+          OOPS_CI_TOKEN: ${{ secrets.OOPS_CI_TOKEN }}
+```
+
+Unset - which is the case today - nothing changes. The secret has to be created by hand: a
+fine-grained token or a GitHub App installation token with read access to the org, added as an
+organisation secret of that name.
+
 ### Three traps, all of which were live
 
 None of these workflows has ever executed - there are no remotes yet - so every one of

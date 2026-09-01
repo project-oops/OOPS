@@ -1,68 +1,58 @@
 # Publishing the four, and wiring up the submodules
 
-None of the five repositories has a commit or a remote yet. Everything below is therefore
-the order it has to happen in, not a description of something already done.
+**Done, on 2026-09-01.** All six repositories have an initial commit, a remote and a public
+`main`, and the five projects are submodules of this one. What follows is what was done and why,
+plus the one step still outstanding.
 
-## Where things are right now
+## Where things are
 
-The four have been moved under this directory as **plain directories**, each still carrying
-its own `.git`. They are not submodules yet and this repository is not a git repository yet;
-`.gitignore` lists all four so that whenever it does become one, they are left alone rather
-than swallowed as ordinary files.
+```
+https://github.com/project-oops/OOPS         the collection, and this file
+https://github.com/project-oops/Orbistoun    submodule: orbistoun
+https://github.com/project-oops/obSCEne      submodule: obscene
+https://github.com/project-oops/Prosperous   submodule: prosperous
+https://github.com/project-oops/SELFish      submodule: selfish
+https://github.com/project-oops/oops-libs    submodule: oops-libs
+```
 
-That interim state is the working development layout and it is the right one - it is exactly
-the arrangement submodules will produce, so anything that builds now will build then.
-
-**One thing to check when moving a project in.** obSCEne finds SELFish by relative path, so
+The layout is not cosmetic. obSCEne finds SELFish by relative path, so
 `OOPS/obscene/tool/Cargo.toml` resolves `../../selfish/crates/selfish-abi` to
-`OOPS/selfish/crates/selfish-abi`. Until SELFish is moved in beside it, that path does not
-exist and **obSCEne does not build** - not a broken dependency, just a sibling that has not
-arrived. Moving the last project in fixes it, and nothing needs editing.
+`OOPS/selfish/crates/selfish-abi`. A nested or renamed arrangement breaks its build, and the
+submodule directory names are lower-case to match what that path expects on a case-sensitive
+filesystem.
 
-## Why the submodules are not wired up
+## They were public, then private, then public again
 
-A submodule records **a remote URL and a revision**. With no commits and no remotes there
-is nothing to record, and a `.gitmodules` written now would name five repositories that do
-not exist and pin four revisions that were never made. It would look finished and resolve
-to nothing.
+Worth writing down, because the private half broke three things at once and none of them
+announced itself as a visibility problem:
 
-So this repository holds documentation and no submodules until the four are pushed.
+- **CI could not fetch siblings.** A workflow's `GITHUB_TOKEN` is scoped to its own repository,
+  so obSCEne named SELFish and Prosperous correctly and failed with `could not read Username
+  for 'https://github.com'`. `bootstrap` now reads `OOPS_CI_TOKEN` for that case; see
+  [BUILDING.md](BUILDING.md).
+- **GitHub Pages went dark.** The free plan does not serve Pages from a private repository. The
+  four `pages.yml` workflows are now gated on `github.event.repository.visibility == 'public'`
+  so they skip instead of failing red.
+- **A public parent with private submodules** is a clone that fails for everybody else, which is
+  the one that would have been discovered by a stranger rather than by CI.
 
-## The order
+## Why they were not wired up sooner
 
-**1. Push each project.** Each has its own history to make first - all four currently have
-zero commits, so this is an initial commit rather than a push of existing work.
+A submodule records **a remote URL and a revision**. With no commits and no remotes there was
+nothing to record, and a `.gitmodules` written then would have named five repositories that did
+not exist and pinned four revisions that were never made. It would have looked finished and
+resolved to nothing.
 
-```
-https://github.com/project-oops/Orbistoun
-https://github.com/project-oops/obSCEne
-https://github.com/project-oops/Prosperous
-https://github.com/project-oops/SELFish
-```
+## What is still outstanding
 
-**2. Add them here, side by side.** The layout is not cosmetic - obSCEne finds SELFish by
-relative path, as a sibling, so a nested or renamed arrangement breaks its build:
+**The four projects reference each other by local path.** `<OOPS>/obscene`, `../selfish`,
+`<OOPS>/prosperous` - none of those means anything to a reader with a clone. Converting them to
+the published URLs is a per-project job and the largest single documentation task the collection
+has. [README.md](../README.md) and [ARCHITECTURE.md](ARCHITECTURE.md) already used the published
+URLs, so they were correct the moment the remotes existed.
 
-```bash
-git submodule add https://github.com/project-oops/Orbistoun  orbistoun
-git submodule add https://github.com/project-oops/obSCEne    obscene
-git submodule add https://github.com/project-oops/Prosperous prosperous
-git submodule add https://github.com/project-oops/SELFish    selfish
-git submodule add https://github.com/project-oops/oops-libs  oops-libs
-```
-
-**Check the directory names against the path dependency before committing this.** obSCEne
-refers to `../../selfish/crates/...`, lower-case, so the SELFish submodule directory has to
-match whatever that path expects on a case-sensitive filesystem. It is worth building
-obSCEne from inside a fresh clone of this repository once, because that is the only way to
-find out that the layout is wrong.
-
-**3. Replace the URLs in the docs.** [README.md](../README.md) and
-[ARCHITECTURE.md](ARCHITECTURE.md) already use the published URLs, so they become correct
-rather than needing an edit. The four projects themselves currently reference each other by
-**local Windows path** - `<OOPS>/obscene`, `../selfish`, `<OOPS>/prosperous` - and none
-of those survives publication. Converting them is a per-project job, and the largest single
-documentation task the collection has.
+**Build obSCEne once from a fresh clone.** That is the only way to find out the submodule layout
+is wrong, and it has not been done.
 
 ## What a reader gets either way
 

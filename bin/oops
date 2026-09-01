@@ -298,6 +298,24 @@ owner_of() {
 
 # Fetch the four, or a named subset plus whatever that subset needs. This is the CI
 # entry point: a workflow clones the meta with no submodules and asks for what its
+# A token, when the sibling is private and the caller has one.
+#
+# Four of the five went private, and a workflow's own `GITHUB_TOKEN` is scoped to the one
+# repository it runs in - so obSCEne's CI could see that it needed SELFish and Prosperous, name
+# them correctly, and still fail with "could not read Username for https://github.com". Only
+# `oops-libs`, still public, arrived.
+#
+# `OOPS_CI_TOKEN` is read from the environment and never written anywhere: it goes into the URL
+# for one clone and the remote is rewritten immediately afterwards, so it is not left sitting in
+# `.git/config` for anything later to print. Absent, this changes nothing and a public sibling
+# clones exactly as before.
+clone_url() {
+    if [ -n "${OOPS_CI_TOKEN:-}" ]; then
+        printf 'https://x-access-token:%s@github.com/%s/%s' "$OOPS_CI_TOKEN" "$1" "$2"
+    else
+        printf 'https://github.com/%s/%s' "$1" "$2"
+    fi
+}
 # job actually builds, rather than paying for five checkouts to build one.
 #
 # Three ways a sibling can arrive, tried in that order:
@@ -327,7 +345,10 @@ bootstrap() {
             git -C "$ROOT" submodule update --init --depth 1 -- "$p" || rc=$?
         elif [ -n "$owner" ] && name="$(repo_name "$p")"; then
             note "not a submodule yet - cloning $owner/$name (docs/PUBLISHING.md)"
-            git clone --depth 1 "https://github.com/$owner/$name" "$ROOT/$p" || rc=$?
+            git clone --depth 1 "$(clone_url "$owner" "$name")" "$ROOT/$p" || rc=$?
+            # Put the plain URL back, so a token never persists in the clone.
+            [ "$rc" -eq 0 ] && git -C "$ROOT/$p" remote set-url origin \
+                "https://github.com/$owner/$name" 2>/dev/null || true
         else
             printf '  %s--%s   %s absent, and no owner to clone it from.\n' "$RED" "$OFF" "$p"
             printf '       Set OOPS_OWNER, or give this checkout an origin remote.\n'

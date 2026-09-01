@@ -1,0 +1,15 @@
+[submodule "orbistoun"]
+	path = orbistoun
+	url = https://github.com/project-oops/Orbistoun
+[submodule "obscene"]
+	path = obscene
+	url = https://github.com/project-oops/obSCEne
+[submodule "prosperous"]
+	path = prosperous
+	url = https://github.com/project-oops/Prosperous
+[submodule "selfish"]
+	path = selfish
+	url = https://github.com/project-oops/SELFish
+[submodule "oops-libs"]
+	path = oops-libs
+	url = https://github.com/project-oops/oops-libs

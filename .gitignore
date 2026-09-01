@@ -1,14 +1,7 @@
-# The submodules live here once the four are published (docs/PUBLISHING.md).
-# Until then these are the development checkouts, which live beside this one and are
-# not this repository's to track.
-/orbistoun/
-/obscene/
-/prosperous/
-/selfish/
-
-# The shared library. A fifth repository, and not a fifth project - it is
-# infrastructure underneath the four rather than one of them.
-/oops-libs/
+# The five projects are submodules (docs/PUBLISHING.md). They were listed here as ignored paths
+# until they had commits and remotes, because until then there was nothing for a .gitmodules to
+# record - and an ignored path cannot be added as a submodule, so those lines came out at the
+# same moment these went in.
 
 # No `__pycache__/` or `*.pyc` rule, deliberately. There is no Python in this repository and
 # there is not meant to be - the checks and the build scripts are shell. An ignore rule for
