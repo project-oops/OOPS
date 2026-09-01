@@ -99,38 +99,102 @@ h1 .s  { color: var(--selfish); }
   color: var(--muted);
 }
 
-/* The pad's four face buttons. A 3x3 grid with one icon in the middle of each
+/* The pad's four face buttons. A 3x3 grid with one item in the middle of each
    edge is the same arrangement as the logo - which is these same four icons -
-   so the mark and the navigation are one idea rather than two. */
+   so the mark and the navigation are one idea rather than two.
+
+   Each cell is icon, role, description, source. The grid is wider than the icons
+   need because the description is what sets the column width now; the icons stay
+   the size they were and sit centred in their cell. */
 .projects {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  width: min(58vmin, 400px);
-  aspect-ratio: 1 / 1;
+  grid-template-rows: auto auto auto;
+  gap: 0.5rem 1rem;
+  width: min(94vmin, 780px);
+  align-items: start;
+  justify-items: center;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 22ch;
 }
 
 .card {
   display: block;
   text-decoration: none;
+  width: min(30vmin, 150px);
   transition: transform 90ms ease, filter 90ms ease;
 }
 .card img { display: block; width: 100%; height: auto; }
 
-.card.obscene    { grid-area: 1 / 2 / 2 / 3; }
-.card.orbistoun  { grid-area: 2 / 3 / 3 / 4; }
-.card.prosperous { grid-area: 3 / 2 / 4 / 3; }
-.card.selfish    { grid-area: 2 / 1 / 3 / 2; }
+/* Small caps in the pixel face, in the project's own accent, so the four labels
+   read as a set and each still belongs to its icon. */
+.role {
+  margin: 0.55rem 0 0.35rem;
+  font-family: var(--pixel);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.desc {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--muted);
+  text-align: center;
+  text-wrap: balance;
+}
+.source {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.source:hover, .source:focus-visible { color: var(--fg); border-bottom-color: var(--fg); }
+
+.cell.obscene    { grid-area: 1 / 2 / 2 / 3; }
+.cell.orbistoun  { grid-area: 2 / 3 / 3 / 4; }
+.cell.prosperous { grid-area: 3 / 2 / 4 / 3; }
+.cell.selfish    { grid-area: 2 / 1 / 3 / 2; }
+
+.cell.obscene    .role { color: var(--obscene); }
+.cell.orbistoun  .role { color: var(--orbistoun); }
+.cell.prosperous .role { color: var(--prosperous); }
+.cell.selfish    .role { color: var(--selfish); }
 
 /* Each icon already carries its own colour and border, so hover lifts it and
    lights it in its own accent rather than repainting anything. */
 .card:hover, .card:focus-visible { transform: scale(1.07); }
-.card.orbistoun:hover,  .card.orbistoun:focus-visible  { filter: drop-shadow(0 0 14px var(--orbistoun)); }
-.card.obscene:hover,    .card.obscene:focus-visible    { filter: drop-shadow(0 0 14px var(--obscene)); }
-.card.prosperous:hover, .card.prosperous:focus-visible { filter: drop-shadow(0 0 14px var(--prosperous)); }
-.card.selfish:hover,    .card.selfish:focus-visible    { filter: drop-shadow(0 0 14px var(--selfish)); }
+.cell.orbistoun  .card:hover, .cell.orbistoun  .card:focus-visible { filter: drop-shadow(0 0 14px var(--orbistoun)); }
+.cell.obscene    .card:hover, .cell.obscene    .card:focus-visible { filter: drop-shadow(0 0 14px var(--obscene)); }
+.cell.prosperous .card:hover, .cell.prosperous .card:focus-visible { filter: drop-shadow(0 0 14px var(--prosperous)); }
+.cell.selfish    .card:hover, .cell.selfish    .card:focus-visible { filter: drop-shadow(0 0 14px var(--selfish)); }
 
-.foot { margin: 0; }
+/* The diamond needs three columns to be a diamond. Below that it is a stack, in
+   the order the tagline names them rather than the order the grid placed them. */
+@media (max-width: 640px) {
+  .projects {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    gap: 2rem;
+    width: min(90vw, 22rem);
+  }
+  .cell.obscene, .cell.orbistoun, .cell.prosperous, .cell.selfish { grid-area: auto; }
+  .cell { max-width: none; }
+}
+
+.foot {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.6rem;
+  justify-content: center;
+}
 .foot a {
   font-family: var(--pixel);
   font-size: 0.65rem;
@@ -163,13 +227,36 @@ h1 .s  { color: var(--selfish); }
       </p>
 
       <nav class="projects" aria-label="The four projects">
-        <a class="card obscene"    href="../obSCEne/"><img src="assets/obscene.svg" alt="obSCEne"></a>
-        <a class="card orbistoun"  href="../Orbistoun/"><img src="assets/orbistoun.svg" alt="orbistoun"></a>
-        <a class="card prosperous" href="../Prosperous/"><img src="assets/prosperous.svg" alt="Prosperous"></a>
-        <a class="card selfish"    href="../SELFish/"><img src="assets/selfish.svg" alt="SELFish"></a>
+        <div class="cell obscene">
+          <a class="card" href="../obSCEne/"><img src="assets/obscene.svg" alt="obSCEne"></a>
+          <p class="role">the probe</p>
+          <p class="desc">a guest that interrogates whatever runs it and reports what it found</p>
+          <a class="source" href="https://github.com/project-oops/obSCEne">source</a>
+        </div>
+        <div class="cell orbistoun">
+          <a class="card" href="../Orbistoun/"><img src="assets/orbistoun.svg" alt="Orbistoun"></a>
+          <p class="role">the emulator</p>
+          <p class="desc">attempts to reimplement what a title runs on, so its code can run natively</p>
+          <a class="source" href="https://github.com/project-oops/Orbistoun">source</a>
+        </div>
+        <div class="cell prosperous">
+          <a class="card" href="../Prosperous/"><img src="assets/prosperous.svg" alt="Prosperous"></a>
+          <p class="role">the instrument</p>
+          <p class="desc">remote management for anything that runs Orbis software</p>
+          <a class="source" href="https://github.com/project-oops/Prosperous">source</a>
+        </div>
+        <div class="cell selfish">
+          <a class="card" href="../SELFish/"><img src="assets/selfish.svg" alt="SELFish"></a>
+          <p class="role">the formats</p>
+          <p class="desc">read, write and build tools for the platform's own file formats</p>
+          <a class="source" href="https://github.com/project-oops/SELFish">source</a>
+        </div>
       </nav>
 
-      <p class="foot"><a href="docs/">Conventions, architecture, building</a></p>
+      <p class="foot">
+        <a href="docs/">Conventions, architecture, building</a>
+        <a href="https://github.com/project-oops/OOPS">The collection on GitHub</a>
+      </p>
     </div>
   </main>
 </body>
