@@ -205,14 +205,24 @@ while IFS= read -r md; do
     count=$((count + 1))
 done < <(find "$SRC/docs" -name '*.md' | sort)
 
-# Figures. A guide that refers to a screenshot needs the screenshot next to it,
-# and rendering only the markdown leaves every image a broken icon - which is
-# exactly the kind of failure that looks like a styling problem and is not.
-if [ -d "$SRC/docs/images" ]; then
-    mkdir -p "$OUT/docs/images"
-    cp -r "$SRC/docs/images/." "$OUT/docs/images/"
-    echo "build-docs: $(find "$SRC/docs/images" -type f | wc -l | tr -d ' ') figures copied"
-fi
+# Everything under docs/ that is not markdown, at the path it already sits in.
+#
+# This copied `docs/images/` and only that, by name. obSCEne keeps its figures in
+# `docs/screenshots/`, so every screenshot on its published site was a broken icon -
+# `docs/screenshots/fpps4.png` returned a 404 while the page around it rendered fine,
+# which reads as a styling fault and is not one. orbistoun's three `.txt` appendices and
+# prosperous's `manifest.schema.json` were missing the same way.
+#
+# Copying by shape rather than by name means the next directory somebody adds arrives
+# without this file needing to hear about it.
+copied=0
+while IFS= read -r f; do
+    rel="${f#"$SRC/docs/"}"
+    mkdir -p "$OUT/docs/$(dirname "$rel")"
+    cp "$f" "$OUT/docs/$rel"
+    copied=$((copied + 1))
+done < <(find "$SRC/docs" -type f ! -name '*.md')
+[ "$copied" -gt 0 ] && echo "build-docs: $copied non-markdown file(s) copied"
 
 # The index, grouped and in a fixed order.
 {
