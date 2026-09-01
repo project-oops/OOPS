@@ -68,15 +68,19 @@ for repo in $WANTED; do
     # this to text: a `.png` cannot hold prose, and `tools/dashes-allowed.txt` holds the very
     # lines being excluded.
     status=0
+    # `bin/*` by path, not by extension. The entry points have no suffix - `bin/oops`,
+    # `bin/obscene` - so an extension list never saw them, and four em-dashes sat in
+    # `obscene/bin/obscene` through every clean run of this gate. A gate that reports on the
+    # files it happens to match is worth less than one that says which files it cannot see.
     git -C "$dir" grep -nI -e "$EM" -e "$EN" -- \
-        '*.md' '*.rs' '*.c' '*.h' '*.sh' '*.py' '*.toml' '*.yml' '*.html' \
+        '*.md' '*.rs' '*.c' '*.h' '*.sh' '*.toml' '*.yml' '*.html' 'bin/*' \
         ':!tools/dashes-allowed.txt' ':!tools/check-dashes.sh' > "$tmp" 2>/dev/null || status=$?
     if [ "$status" -gt 1 ]; then
         printf 'check-dashes: git grep failed in %s (exit %s) - NOT clean, just unread\n' \
             "$repo" "$status" >&2
         exit 2
     fi
-    examined=$((examined + $(git -C "$dir" ls-files -- '*.md' '*.rs' '*.c' '*.h' '*.sh' '*.py' '*.toml' '*.yml' '*.html' | wc -l)))
+    examined=$((examined + $(git -C "$dir" ls-files -- '*.md' '*.rs' '*.c' '*.h' '*.sh' '*.toml' '*.yml' '*.html' 'bin/*' | wc -l)))
 
     while IFS= read -r hit; do
         [ -n "$hit" ] || continue
