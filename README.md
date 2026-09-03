@@ -20,10 +20,15 @@ each project's own site from there.
 | **[Prosperous](https://github.com/project-oops/Prosperous)** | the instrument | remote management for anything that runs Orbis software |
 | **[SELFish](https://github.com/project-oops/SELFish)** | the formats | read, write and build tools for the platform's own file formats |
 
-Underneath them, **[oops-libs](https://github.com/project-oops/oops-libs)** - the build stamp,
-logging, paths and the in-app documentation viewer. A fifth repository and **not** a fifth
-project: OOPS is still the four above. Things go in it because they were already being written
-twice, not because they might be shared.
+Underneath them, two libraries, and neither is a fifth project - OOPS is still the four above.
+Things go into either because they were already being written twice, not because they might be
+shared:
+
+- **[oops-libs](https://github.com/project-oops/oops-libs)** - Rust, and what the **host-side
+  tools** share: the build stamp, logging, paths and the in-app documentation viewer.
+- **[oops-sdk](https://github.com/project-oops/oops-sdk)** - freestanding C, and what the
+  **target-side payloads** share: display, input, audio, direct memory, time, threads and
+  sockets. Nothing links both.
 
 **This is the development entry point.** Clone it and you have everything, arranged so it
 builds - which matters because the four depend on each other and that is expected to
@@ -264,6 +269,8 @@ the Rust ecosystem convention, and the same terms every project in the collectio
   only thing this repository can do that none of them can
 - [oops-libs](https://github.com/project-oops/oops-libs) - the shared crates, and the rule about
   what is allowed into them
+- [oops-sdk](https://github.com/project-oops/oops-sdk) - the shared target-side C, and the same
+  rule applied to a payload rather than a tool
 
 Each project carries its own decision log, worklog and workflow, and states the principles
 it adds to [CONVENTIONS.md](docs/CONVENTIONS.md). Read this and then the one you are working

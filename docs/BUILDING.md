@@ -31,7 +31,9 @@ That is also why CI uses these: the moment the command CI runs and the command a
 are different commands, one of them is untested, and it is always the one nobody watches.
 
 There is a fallback for a project that has not grown an entry point yet - it is treated as a
-plain cargo workspace - but all five have one, oops-libs included.
+plain cargo workspace - but all six have one, both libraries included. oops-sdk is the one
+that is not cargo at all: its entry point wraps `make`, which is exactly why the fallback
+cannot be the interface.
 
 ### There is no `<project>.sh` any more
 

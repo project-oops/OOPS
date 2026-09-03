@@ -28,7 +28,7 @@ sections. Read 1, 2 and 3 before changing anything:
 | §8 | Gates - including that a guard is not finished until somebody has made it fail |
 | §9 | Logging |
 
-Sections are cited by number and by anchor from all five repositories, so they are stable:
+Sections are cited by number and by anchor from all six repositories, so they are stable:
 renaming one breaks links in code comments, `.gitattributes` files and CI workflows.
 
 **[ARCHITECTURE.md](ARCHITECTURE.md)** - how the four fit together. What crosses a boundary
@@ -57,7 +57,7 @@ once. See [tools/README.md](../tools/README.md).
 | | |
 |---|---|
 | `check-decisions.sh` | holds every `docs/DECISIONS.md` to §4, against a baseline that can only shrink |
-| `check-links.sh` | resolves every relative link and `#anchor` across all five repositories |
+| `check-links.sh` | resolves every relative link and `#anchor` across all six repositories |
 | `build-docs.sh` | renders each project's `docs/` for its Pages site - this page included |
 | `publish-profile.sh` | assembles the organisation's landing page from the root README |
 

@@ -13,3 +13,6 @@
 [submodule "oops-libs"]
 	path = oops-libs
 	url = https://github.com/project-oops/oops-libs
+[submodule "oops-sdk"]
+	path = oops-sdk
+	url = https://github.com/project-oops/oops-sdk

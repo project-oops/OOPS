@@ -1,6 +1,6 @@
 # tools
 
-Checks that span all five repositories. Anything one project can check belongs in that
+Checks that span all six repositories. Anything one project can check belongs in that
 project's own gate; what lands here is what only the meta-repository can see - either because
 it needs every project checked out at once, or because it is about something a project cannot
 observe about itself.
@@ -61,7 +61,7 @@ tools/check-decisions.sh --update-baseline
 
 ## `check-links.sh`
 
-Resolves every relative markdown link and every `#anchor` in all five repositories.
+Resolves every relative markdown link and every `#anchor` in all six repositories.
 
 ```bash
 tools/check-links.sh

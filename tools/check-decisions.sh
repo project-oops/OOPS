@@ -36,7 +36,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$HERE")"
 # oops-libs is not one of the four, but it keeps a decision log and is held to the same rules -
 # a gate that skips the newest repository is a gate that drifts first.
-PROJECTS="orbistoun obscene prosperous selfish oops-libs"
+PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk"
 BASELINE="$HERE/decisions-baseline.txt"
 
 show_known=0

@@ -50,10 +50,12 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$HERE")"
-# `oops-libs` is here because every one of the four depends on it, so a change to it that
-# breaks a consumer should be caught by the same command that checks the consumers. It is a
-# library rather than a project, which is why it is last and why the README calls OOPS four.
-PROJECTS="orbistoun obscene prosperous selfish oops-libs"
+# The two libraries are here because the four depend on them, so a change to either that
+# breaks a consumer should be caught by the same command that checks the consumers. They are
+# libraries rather than projects, which is why they are last and why the README calls OOPS
+# four: `oops-libs` is the Rust the host-side tools share, `oops-sdk` the freestanding C the
+# target-side payloads share.
+PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     BOLD=$'\033[1m'; RED=$'\033[31m'; GREEN=$'\033[32m'; DIM=$'\033[2m'; OFF=$'\033[0m'
@@ -240,7 +242,7 @@ git_proxy() {
 # common leaf.
 deps_for() {
     case "$1" in
-        obscene)    echo "selfish prosperous oops-libs" ;;
+        obscene)    echo "selfish prosperous oops-libs oops-sdk" ;;
         orbistoun)  echo "oops-libs" ;;
         prosperous) echo "oops-libs" ;;
         selfish)    echo "oops-libs" ;;
@@ -275,6 +277,7 @@ repo_name() {
         prosperous) echo "Prosperous" ;;
         selfish)    echo "SELFish" ;;
         oops-libs)  echo "oops-libs" ;;
+        oops-sdk)   echo "oops-sdk" ;;
         *) return 1 ;;
     esac
 }
