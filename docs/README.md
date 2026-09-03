@@ -11,7 +11,7 @@ Looking for a project rather than the collection? [orbistoun](https://github.com
 [root README](../README.md) has the shape of the whole thing, including the oracle problem
 that explains why there are four projects instead of one.
 
-## The four documents
+## The five documents
 
 **[CONVENTIONS.md](CONVENTIONS.md)** - the rules that hold everywhere, in nine numbered
 sections. Read 1, 2 and 3 before changing anything:
@@ -41,6 +41,13 @@ obSCEne needs WSL when the other three build anywhere.
 
 **[PUBLISHING.md](PUBLISHING.md)** - the repositories, the submodule wiring, and the order
 to do it in.
+
+**[GLOSSARY.md](GLOSSARY.md)** - the vocabulary, for somebody who has not done systems or
+emulator work before. Two halves: standard ELF, which is a 1990 format Linux and BSD use too
+and which is documented everywhere outside this collection, and the vendor extensions to it,
+which are documented nowhere else. Also the words that mean different things in different
+repositories - `check`, `shape`, `corpus` and `probe` all carry two senses, and nothing looks
+wrong when you read the wrong one.
 
 ## The tools in this repository
 
