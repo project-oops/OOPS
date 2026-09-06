@@ -17,7 +17,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$HERE")"
-PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk"
+PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk oops-apps"
 
 if [ "$#" -gt 0 ]; then
     for want in "$@"; do

@@ -50,12 +50,14 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$HERE")"
-# The two libraries are here because the four depend on them, so a change to either that
-# breaks a consumer should be caught by the same command that checks the consumers. They are
-# libraries rather than projects, which is why they are last and why the README calls OOPS
-# four: `oops-libs` is the Rust the host-side tools share, `oops-sdk` the freestanding C the
-# target-side payloads share.
-PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk"
+# The last three are not projects, which is why they come last and why the README still calls
+# OOPS four. `oops-libs` is the Rust the host-side tools share and `oops-sdk` the freestanding
+# C the target-side payloads share - both here because the four depend on them, so a change
+# that breaks a consumer is caught by the same command that checks the consumers. `oops-apps`
+# is the homebrew built on `oops-sdk`; it depends on the collection rather than being depended
+# on, and it is swept for the same reason a consumer is - a change to the SDK that breaks an
+# app should show here.
+PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk oops-apps"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     BOLD=$'\033[1m'; RED=$'\033[31m'; GREEN=$'\033[32m'; DIM=$'\033[2m'; OFF=$'\033[0m'
@@ -246,6 +248,7 @@ deps_for() {
         orbistoun)  echo "oops-libs" ;;
         prosperous) echo "oops-libs" ;;
         selfish)    echo "oops-libs" ;;
+        oops-apps)  echo "oops-sdk selfish" ;;
         *)          echo "" ;;
     esac
 }
@@ -278,6 +281,7 @@ repo_name() {
         selfish)    echo "SELFish" ;;
         oops-libs)  echo "oops-libs" ;;
         oops-sdk)   echo "oops-sdk" ;;
+        oops-apps)  echo "oops-apps" ;;
         *) return 1 ;;
     esac
 }

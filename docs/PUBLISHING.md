@@ -1,8 +1,8 @@
 # Publishing the four, and wiring up the submodules
 
 **Done, on 2026-09-01.** All six repositories have an initial commit, a remote and a public
-`main`, and the five projects are submodules of this one. What follows is what was done and why,
-plus the one step still outstanding.
+`main`, and all six are submodules of this one. What follows is what was done and why, plus the
+one step still outstanding.
 
 ## Where things are
 
@@ -13,6 +13,7 @@ https://github.com/project-oops/obSCEne      submodule: obscene
 https://github.com/project-oops/Prosperous   submodule: prosperous
 https://github.com/project-oops/SELFish      submodule: selfish
 https://github.com/project-oops/oops-libs    submodule: oops-libs
+https://github.com/project-oops/oops-sdk     submodule: oops-sdk
 ```
 
 The layout is not cosmetic. obSCEne finds SELFish by relative path, so

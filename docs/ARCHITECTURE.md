@@ -11,8 +11,9 @@ restated here.
 
 **By dependency - the compile-time edges:**
 
-obSCEne's tooling reaches into **two** siblings by relative path - SELFish for the formats,
-and Prosperous for the link layer that talks to hardware:
+obSCEne's tooling reaches into **three** siblings by relative path - SELFish for the formats,
+Prosperous for the link layer and process control, and oops-libs for the build stamp and
+logging every tool shares:
 
 ```toml
 selfish-abi       = { path = "../../selfish/crates/selfish-abi" }
@@ -20,7 +21,16 @@ selfish-nid       = { path = "../../selfish/crates/selfish-nid" }
 selfish-elf       = { path = "../../selfish/crates/selfish-elf" }
 selfish-container = { path = "../../selfish/crates/selfish-container" }
 pros-link         = { path = "../../prosperous/crates/pros-link" }
+pros-core         = { path = "../../prosperous/crates/pros-core" }
+oops-build        = { path = "../../oops-libs/crates/oops-build" }
+oops-log          = { path = "../../oops-libs/crates/oops-log" }
+oops-paths        = { path = "../../oops-libs/crates/oops-paths" }
 ```
+
+There is a fourth edge that is not a Cargo one: obSCEne's `Makefile` links **oops-sdk**'s C
+sources into the module and the eboot, and builds its payloads on oops-sdk's runtime. A
+freestanding-C dependency does not show up in a manifest, but it is a compile-time edge like
+the rest.
 
 A relative path out of the repository is unusual and worth being explicit about. It works
 under this repository because submodules sit side by side, and it works in the development
@@ -123,7 +133,7 @@ because a licence asserted over published code is much harder to revise than one
 a directory. Whoever resolves it should write down which argument won, and in which project's
 log.
 
-## Four repositories, one working copy
+## Four projects, one working copy
 
 The split is about **distribution and identity, not about source-level independence**.
 
@@ -163,12 +173,13 @@ appeared in the same table with nothing marking which is which.
 
 ## Conventions
 
-There is no shared convention document, and this file is not one. Each project carries its
-own principles, decision log and workflow, and they differ deliberately - Orbistoun's
-provenance rules exist because it reimplements a platform, and would be ceremony in a
-hardware instrument.
+The shared rules live in [CONVENTIONS.md](CONVENTIONS.md), and this file is not that - it
+describes how the pieces fit, not the rules they hold to. What CONVENTIONS.md states once -
+provenance, naming, honest failure, decision logs, worklogs, gates - each project then states
+only what it *adds*, and those additions differ deliberately: Orbistoun's provenance rules
+exist because it reimplements a platform, and would be ceremony in a hardware instrument.
 
-What they do have in common is the shape: a `README`, a principles file, a numbered
+What every project has in common is the shape: a `README`, a principles file, a numbered
 decision log with reasoning, and a worklog. Where a project has drifted from its own stated
 conventions, that is a fault in that project rather than something for this repository to
 enforce.

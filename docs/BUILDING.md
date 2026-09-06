@@ -57,22 +57,22 @@ meta-repo's own, because they are about the collection rather than about one pro
 | `clean [project...]` | remove build output |
 | `doc [project...]` | build the API docs |
 | `pkg` | obSCEne's installable package |
-| `gates` | the two meta-level checks: decision logs, markdown links |
-| `all` | `gates`, then `check` across the four |
-| `bootstrap [project...]` | fetch the four, or the ones named plus what they need |
-| `git <args...>` | run any git verb across the meta and the four |
+| `gates` | the meta-level checks: decision logs, markdown links, workflow shape, the hyphen rule |
+| `all` | `gates`, then `check` across the collection |
+| `bootstrap [project...]` | fetch the members, or the ones named plus what they need |
+| `git <args...>` | run any git verb across the meta and every member |
 | `status` | branch and working-tree state |
-| `doctor` | can this machine build all four |
+| `doctor` | can this machine build the collection |
 | `exec "<cmd>" [project...]` | run an arbitrary command in each project |
-| `list` | the four, where they are, whether present |
+| `list` | the members, where they are, whether present |
 
-Omit the project to mean all four. Names may be shortened while they stay unambiguous, so
-`oops test pros` is `oops test prosperous`.
+Omit the project to mean the whole collection. Names may be shortened while they stay
+unambiguous, so `oops test pros` is `oops test prosperous`.
 
 `oops git` proxies **any** verb rather than a hardcoded list, so `oops git status -s`,
 `oops git log --oneline -1` and `oops git remote -v` all work without this script knowing what
 they mean. It walks the checkouts rather than using `git submodule foreach`, because that
-skips the meta repo and finds nothing at all before the four are published.
+skips the meta repo.
 
 ### What a project adds beyond the seven
 
@@ -86,6 +86,7 @@ the others do not, reached through the same entry point:
 | **prosperous** | `provenance`, `target` |
 | **selfish** | `provenance`, `links` |
 | **oops-libs** | none |
+| **oops-sdk** | any make target by name; `test`/`lint`/`fmt`/`doc` fail loudly until wired |
 
 Two of those are deliberately *not* folded into a shared verb. orbistoun's `fix` applies clippy
 suggestions as well as formatting, which is a mutating operation that should be asked for by
@@ -108,10 +109,11 @@ and a build without them fails as a missing directory rather than as a missing d
 
 ```
 oops-libs    ← nothing
+oops-sdk     ← nothing            (freestanding C, its own bottom)
 selfish      ← oops-libs
 orbistoun    ← oops-libs
 prosperous   ← oops-libs
-obscene      ← selfish, prosperous, oops-libs
+obscene      ← selfish, prosperous, oops-libs, and oops-sdk (a C/make edge, not a Cargo one)
 ```
 
 **Every project takes oops-libs**, so nothing here builds from a clone of only its own
@@ -129,7 +131,8 @@ what its CI runs:
 [obSCEne](https://github.com/project-oops/obSCEne/blob/main/docs/BUILDING.md) ·
 [Prosperous](https://github.com/project-oops/Prosperous/blob/main/docs/BUILDING.md) ·
 [SELFish](https://github.com/project-oops/SELFish/blob/main/docs/BUILDING.md) ·
-[oops-libs](https://github.com/project-oops/oops-libs/blob/main/docs/BUILDING.md)
+[oops-libs](https://github.com/project-oops/oops-libs/blob/main/docs/BUILDING.md) ·
+[oops-sdk](https://github.com/project-oops/oops-sdk/blob/main/docs/BUILDING.md)
 
 ## Windows, WSL, and why obSCEne is different
 

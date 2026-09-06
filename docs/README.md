@@ -46,8 +46,8 @@ to do it in.
 emulator work before. Two halves: standard ELF, which is a 1990 format Linux and BSD use too
 and which is documented everywhere outside this collection, and the vendor extensions to it,
 which are documented nowhere else. Also the words that mean different things in different
-repositories - `check`, `shape`, `corpus` and `probe` all carry two senses, and nothing looks
-wrong when you read the wrong one.
+repositories - `check`, `shape`, `corpus`, `probe` and several more each carry two senses, and
+nothing looks wrong when you read the wrong one. The glossary's own table is the full list.
 
 ## The tools in this repository
 
@@ -58,6 +58,9 @@ once. See [tools/README.md](../tools/README.md).
 |---|---|
 | `check-decisions.sh` | holds every `docs/DECISIONS.md` to §4, against a baseline that can only shrink |
 | `check-links.sh` | resolves every relative link and `#anchor` across all six repositories |
+| `check-workflows.sh` | every workflow that touches a project's source begins with the standard preamble |
+| `check-dashes.sh` | the house hyphen style, across the collection |
+| `split-decisions.sh`, `split-doc.sh` | regenerate a project's decision/worklog/backlog index from its per-entry files |
 | `build-docs.sh` | renders each project's `docs/` for its Pages site - this page included |
 | `publish-profile.sh` | assembles the organisation's landing page from the root README |
 

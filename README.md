@@ -48,8 +48,10 @@ OOPS/                ← this meta-repo: the shared rules, the cross-project gat
   obscene/           ← submodule - the probe
   prosperous/        ← submodule - the instrument
   selfish/           ← submodule - the formats
+  oops-libs/         ← submodule - the shared Rust the host-side tools use
+  oops-sdk/          ← submodule - the shared C the target-side payloads link
   docs/              ← conventions, architecture, publishing
-  tools/             ← the checks that need all four checked out at once
+  tools/             ← the checks that need the whole collection checked out at once
 ```
 
 **The arrangement is load-bearing rather than cosmetic.** obSCEne finds its siblings by
@@ -65,7 +67,7 @@ Directory names are lower-case because those build paths depend on it - see
 ## Quickstart
 
 Prerequisite: a Rust toolchain. obSCEne's C targets additionally need `clang` and `lld` under
-WSL or Linux; the other three build anywhere.
+WSL or Linux; the others build anywhere.
 
 ```bash
 git clone --recurse-submodules https://github.com/project-oops/OOPS
@@ -84,7 +86,7 @@ Then `bin/oops`, the one vocabulary over four projects that do not share one:
 Names can be shortened as long as they stay unambiguous, so `./bin/oops test pros` works. On
 Windows outside Git Bash, `bin\oops.cmd` is the same script.
 
-**Every project carries the same seven verbs at `bin/<project>`, and this relays to them** -
+**Every project carries the same shared verbs at `bin/<project>`, and this relays to them** -
 `oops check selfish` is `selfish/bin/selfish check`. So there is one command reached two ways,
 and this repository knows nothing about how any of them builds. CI runs it too, for the same
 reason: the moment the command CI runs and the command a person runs are different commands,
@@ -225,14 +227,13 @@ both sides**, not an oversight - see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md
 
 ## Status
 
-**The four are here as plain directories, not yet as submodules.** Each keeps its own
-`.git`, and this arrangement is the same one submodules will produce - so what builds now
-will build after publication.
-
-**Nothing is published yet.** None of the four has a commit or a remote, so the links above
-are where they will be rather than where they are, and the submodules are not wired up - a
-submodule pins a remote and a revision and there are neither.
-[docs/PUBLISHING.md](docs/PUBLISHING.md) has the order.
+**Published, and wired as submodules.** All six repositories - the four projects and the two
+libraries - have a commit, a remote and a public `main` under
+[github.com/project-oops](https://github.com/project-oops), and each is a submodule of this
+one, pinned to a revision. A clone of this repository with `--recurse-submodules`, or a plain
+clone followed by `oops bootstrap`, brings the whole collection down at the layout the builds
+expect. [docs/PUBLISHING.md](docs/PUBLISHING.md) has what was done and the one step still
+outstanding.
 
 ## One directory, shared
 
@@ -264,7 +265,9 @@ the Rust ecosystem convention, and the same terms every project in the collectio
   naming, decision logs, worklogs, gates. Each project states only what it adds
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - how the four meet, what crosses a
   boundary, and how to cite one project's decisions from another
-- [docs/PUBLISHING.md](docs/PUBLISHING.md) - publishing the four and wiring up submodules
+- [docs/GLOSSARY.md](docs/GLOSSARY.md) - the front door to the vocabulary: standard ELF, the
+  vendor's extensions, and the words that mean different things in different repositories
+- [docs/PUBLISHING.md](docs/PUBLISHING.md) - publishing the collection and wiring up submodules
 - [tools/](tools/) - the checks that need every project checked out at once, which is the
   only thing this repository can do that none of them can
 - [oops-libs](https://github.com/project-oops/oops-libs) - the shared crates, and the rule about

@@ -8,12 +8,12 @@ observe about itself.
 Run from the OOPS root. **Everything here is shell**, like the `bin/*` entry points it sits
 beside.
 
-All four checkers were Python once, and that was a mistake nobody had decided on: the
-collection is Rust, C and bash - 411 Rust files, 103 C, 50 shell, and **no Python at all in
-any of the five projects**, which obSCEne's `CLAUDE.md` states outright. Four files in this
-one directory turned out to be a far worse guide to the house language than the five hundred
-beside them, and they were the guide followed anyway. Each was rewritten against its Python
-original and checked to produce byte-identical output before the original was deleted.
+The checkers here were Python once, and that was a mistake nobody had decided on: the
+collection is Rust, C and bash, and **no Python at all in any of the repositories**, which
+obSCEne's `CLAUDE.md` states outright. A handful of files in this one directory turned out to
+be a far worse guide to the house language than the source beside them, and they were the
+guide followed anyway. Each was rewritten against its Python original and checked to produce
+byte-identical output before the original was deleted.
 
 ## `check-decisions.sh`
 
