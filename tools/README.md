@@ -161,3 +161,41 @@ after changing the marked sections.
 Publishing commits as `legboots`, pinned in the script rather than taken from whoever is
 logged in. A local clone of `.github` would sit outside the OOPS root, where the `includeIf`
 that binds that identity does not apply, and the first commit would carry the wrong author.
+
+## `setup-wsl.sh`
+
+Makes a Windows machine able to build the three C repositories, which is the gap
+`oops doctor` reports and cannot close. `./bin/oops setup` is the same script.
+
+```bash
+tools/setup-wsl.sh              # WSL's Ubuntu distribution if there is none, then the toolchain inside it
+tools/setup-wsl.sh --dry-run    # what it would do
+tools/setup-wsl.sh --inside     # the Linux half alone, which is also what runs on a Linux machine
+```
+
+Ubuntu and not something smaller: CI is `ubuntu-latest`, obSCEne's scripts name the
+distribution `Ubuntu`, and its host harness records what it expects against glibc, so a musl
+distribution would disagree with every one of those entries while measuring correctly.
+
+It installs what [obscene/CLAUDE.md](../obscene/CLAUDE.md) lists - `clang lld binutils gcc
+libc6-dev make`, and rustup with clippy and rustfmt - plus `clang-format` for obSCEne's format
+gate, `zip` and `unzip` for the package and release jobs, `python3`, which
+`obscene/scripts/build-pkg.sh` shells out to for one file and Ubuntu ships regardless, and
+`curl` with `ca-certificates`, because rustup's installer arrives over https and would
+otherwise fail inside this script rather than before it. Everything is install-if-missing, so
+it runs again after a partial failure without starting over. `bin/oops` reaches WSL's default
+distribution; set `WSL_DISTRO` for one with another name, which is the variable obSCEne's
+scripts read too.
+
+**A container runtime's own WSL distribution does not count as one**, here or in `doctor`.
+Docker Desktop registers `docker-desktop` on the WSL2 backend, and Rancher and podman do the
+same under their own names; they are appliances rather than anywhere a toolchain goes, and
+Docker's is Alpine. Counted, installing Docker Desktop would make `doctor` report that this
+machine can build the C repositories without anything having changed about whether it can.
+Both filter the same names.
+
+Two things it does not do, and says so: enable the WSL feature itself, which needs an
+elevated prompt and a reboot, and install rustup on the Windows side, which wants the MSVC
+build tools. The distribution's own first run asks for a username and a password, so run it
+from a real terminal. See [BUILDING.md](../docs/BUILDING.md#windows-wsl-and-why-obscene-is-different)
+for why the C repositories go through WSL at all.

@@ -15,6 +15,9 @@ Nothing has shipped yet - this is the initial commit.
 - **`bin/oops`**, one entry point for seven repositories. `bootstrap` fetches the siblings a
   project needs, whether they are already present, submodules, or absent and needing a clone,
   so a CI job and a fresh checkout take the same path.
+- **`oops setup`**, for a machine that cannot yet build the C repositories: WSL, the Ubuntu
+  distribution, and the toolchain inside it, from one script that runs again harmlessly.
+  `doctor` names it when it finds the gap.
 - **The shared gates**, all of them shell: links, decision logs, workflow shape, and the
   hyphen rule. Every one was made to fail on purpose before being trusted, because a guard
   nobody has seen fail is a guard nobody knows works. (Provenance is a gate too, but a

@@ -149,6 +149,11 @@ compiler error that reads as a code fault - or, for the two that are only a Make
 delegating. A WSL with no distribution installed is the same as no WSL, and `oops doctor`
 says which of the two it found.
 
+`./bin/oops setup` does the Windows side. It installs the Ubuntu distribution when WSL has
+none, and inside it the toolchain obSCEne documents plus what the other two C repositories
+need. It is `tools/setup-wsl.sh`, it runs again harmlessly, and `--dry-run` says what it would
+do without doing it. On a Linux machine the same script installs the same packages directly.
+
 Two things had to be handled for that to work at all, and both fail in ways that point at the
 wrong thing:
 

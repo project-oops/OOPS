@@ -32,6 +32,8 @@
 #                                 `oops git status -s`, `oops git remote -v`.
 #   oops status                   branch and working-tree state, meta + four
 #   oops doctor                   is this machine able to build all four
+#   oops setup                    make it able to: WSL, the Ubuntu distribution, and
+#                                 the toolchain inside it. tools/setup-wsl.sh
 #   oops exec "<cmd>" [proj...]   run an arbitrary command in each project
 #   oops list                     the four, where they are, whether present
 #
@@ -94,6 +96,25 @@ builds_c() {
     case "$1" in obscene|oops-sdk|oops-apps) return 0 ;; *) return 1 ;; esac
 }
 
+# The WSL distributions a person could build in, one per line, empty if there are none.
+#
+# `wsl --list --quiet` prints nothing at all when WSL is installed with no distribution - the
+# "no installed distributions" text goes nowhere a pipe can read - so an empty answer is the
+# test rather than a string to match. `tr` strips the UTF-16 padding from a real one.
+#
+# **A container runtime's own distributions are not distributions for this purpose.** Docker
+# Desktop registers `docker-desktop` on the WSL2 backend, Rancher and podman the same under
+# their own names, and they are appliances rather than anywhere a toolchain goes. Left in,
+# installing Docker Desktop would make `doctor` report that the C repositories can be built
+# here, on a machine where nothing has changed about whether they can. tools/setup-wsl.sh
+# filters the same names, and both are written out rather than shared because that script has
+# to run on a machine where this one has never worked.
+wsl_distros() {
+    MSYS_NO_PATHCONV=1 wsl.exe --list --quiet 2>/dev/null | tr -d '\r\0' |
+        sed '/^[[:space:]]*$/d' |
+        grep -viE '^(docker-desktop(-data)?|rancher-desktop(-data)?|podman-machine.*)$' || true
+}
+
 run_via_wsl() {
     local dir="$1"; shift
     [ -n "${OOPS_NO_WSL:-}" ] && die "this needs clang and lld; the shell has neither and OOPS_NO_WSL is set"
@@ -120,7 +141,9 @@ run_via_wsl() {
     # shadows it. That cargo is old enough to refuse a version-4 lock file, and it
     # says so as a lock-file parse error rather than as a version problem. This is
     # rustup's own file, not a guess at what it does.
-    MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe --cd "$wpath" -- \
+    # `WSL_DISTRO` names the distribution - the variable obscene's own scripts read. Unset
+    # means WSL's default, which is what `oops setup` leaves Ubuntu as.
+    MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe ${WSL_DISTRO:+-d "$WSL_DISTRO"} --cd "$wpath" -- \
         bash -lc 'if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi; '"$*"
 }
 
@@ -436,20 +459,26 @@ doctor() {
     have git "needed to resolve what is ignored" || rc=1
 
     step "the C toolchain - obSCEne, oops-sdk and oops-apps"
+    local c_gap=0
     if needs_wsl; then
         if ! command -v wsl.exe >/dev/null 2>&1; then
-            printf '  %s--%s   no clang and no WSL - the C repositories cannot be built here\n' "$RED" "$OFF"; rc=1
-        # `wsl --list --quiet` prints nothing at all when WSL is installed with no
-        # distribution - the "no installed distributions" text goes nowhere a pipe can read -
-        # so an empty answer is the test. `tr` strips the UTF-16 padding from a real one.
-        elif MSYS_NO_PATHCONV=1 wsl.exe --list --quiet 2>/dev/null | tr -d '\r\0' | grep -q .; then
+            printf '  %s--%s   no clang and no WSL - the C repositories cannot be built here\n' "$RED" "$OFF"
+            c_gap=1
+        elif [ -n "$(wsl_distros)" ]; then
             note "  no clang in this shell; the C repositories will be built through WSL"
         else
-            printf '  %s--%s   no clang, and WSL has no distribution - the C repositories cannot be built here\n' "$RED" "$OFF"; rc=1
+            printf '  %s--%s   no clang, and WSL has no distribution - the C repositories cannot be built here\n' "$RED" "$OFF"
+            c_gap=1
         fi
     else
-        have clang "the C repositories compile freestanding C with it" || rc=1
-        have make "obSCEne, oops-sdk and every app are Makefiles" || rc=1
+        have clang "the C repositories compile freestanding C with it" || c_gap=1
+        have make "obSCEne, oops-sdk and every app are Makefiles" || c_gap=1
+    fi
+    # The gap this one reports is the gap `setup` closes, so it says so. A check that names
+    # what is missing and not the command that fixes it leaves the reader to find it.
+    if [ "$c_gap" -ne 0 ]; then
+        note "       ./bin/oops setup installs it (tools/setup-wsl.sh)"
+        rc=1
     fi
 
     step "the collection"
@@ -486,6 +515,7 @@ case "$cmd" in
     all)     gates; for p in $(resolve); do run_in "$p" check "$(cmd_for "$p" check)"; done; report ;;
     status)  status_all ;;
     doctor)  doctor ;;
+    setup)   bash "$ROOT/tools/setup-wsl.sh" "$@" ;;
     list)
         for p in $PROJECTS; do
             if [ -d "$ROOT/$p" ]; then s="present"; else s="absent"; fi
