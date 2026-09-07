@@ -16,3 +16,6 @@
 [submodule "oops-sdk"]
 	path = oops-sdk
 	url = https://github.com/project-oops/oops-sdk
+[submodule "oops-apps"]
+	path = oops-apps
+	url = https://github.com/project-oops/oops-apps

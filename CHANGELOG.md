@@ -12,14 +12,14 @@ Nothing has shipped yet - this is the initial commit.
 
 ### Added
 
-- **`bin/oops`**, one entry point for six repositories. `bootstrap` fetches the siblings a
+- **`bin/oops`**, one entry point for seven repositories. `bootstrap` fetches the siblings a
   project needs, whether they are already present, submodules, or absent and needing a clone,
   so a CI job and a fresh checkout take the same path.
 - **The shared gates**, all of them shell: links, decision logs, workflow shape, and the
   hyphen rule. Every one was made to fail on purpose before being trusted, because a guard
   nobody has seen fail is a guard nobody knows works. (Provenance is a gate too, but a
   per-project one - it lives in each project's CI under §1, not in the meta sweep.)
-- **`docs/CONVENTIONS.md`**, stated once for all six repositories rather than six times
+- **`docs/CONVENTIONS.md`**, stated once for all seven repositories rather than seven times
   slightly differently. Provenance, naming, honest failure over plausible output, decision
   logs, not writing what goes stale, and the gates.
 - **`docs/BUILDING.md`** plus one per project, and the three ways a CI job gets the sibling

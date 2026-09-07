@@ -1,8 +1,9 @@
 # Publishing the four, and wiring up the submodules
 
-**Done, on 2026-09-01.** All six repositories have an initial commit, a remote and a public
-`main`, and all six are submodules of this one. What follows is what was done and why, plus the
-one step still outstanding.
+**Done, on 2026-09-01.** All six repositories then had an initial commit, a remote and a public
+`main`, and all six were submodules of this one. A seventh, oops-apps, was registered on
+2026-09-07 and is not yet pushed. What follows is what was done and why, plus the steps still
+outstanding.
 
 ## Where things are
 
@@ -14,6 +15,7 @@ https://github.com/project-oops/Prosperous   submodule: prosperous
 https://github.com/project-oops/SELFish      submodule: selfish
 https://github.com/project-oops/oops-libs    submodule: oops-libs
 https://github.com/project-oops/oops-sdk     submodule: oops-sdk
+https://github.com/project-oops/oops-apps    submodule: oops-apps
 ```
 
 The layout is not cosmetic. obSCEne finds SELFish by relative path, so
@@ -54,6 +56,10 @@ URLs, so they were correct the moment the remotes existed.
 
 **Build obSCEne once from a fresh clone.** That is the only way to find out the submodule layout
 is wrong, and it has not been done.
+
+**Push oops-apps.** It has its first commit, its remote, and an entry in `.gitmodules`; the
+repository exists under the organisation and is empty. Until its `main` is pushed, a fresh
+`--recurse-submodules` clone gets six of the seven and stops on the seventh.
 
 ## What a reader gets either way
 

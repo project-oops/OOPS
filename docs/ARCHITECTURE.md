@@ -32,6 +32,12 @@ sources into the module and the eboot, and builds its payloads on oops-sdk's run
 freestanding-C dependency does not show up in a manifest, but it is a compile-time edge like
 the rest.
 
+oops-apps has the same kind of edge from the other side. Every app's `Makefile` includes
+`../../oops-sdk/oops-sdk.mk` and compiles the SDK's sources into its own payload, so it
+depends on the collection without anything in the collection depending on it. It is swept by
+`bin/oops` anyway, for the reason a consumer is: a change to the SDK that breaks an app
+should fail here, not in a clone somebody makes later.
+
 A relative path out of the repository is unusual and worth being explicit about. It works
 under this repository because submodules sit side by side, and it works in the development
 layout because the checkouts are siblings. It does **not** work in a lone clone of obSCEne,
@@ -63,6 +69,9 @@ the sibling layout is not a convenience - it is one of only two arrangements tha
   No code is shared in either direction; the interface is the platform's own module format.
 - Prosperous delivers that same module to real hardware and reads back what it printed.
 - obSCEne's reports are consumed as data by Orbistoun and compared across emulators.
+- Porthole, in oops-apps, is the target half of Prosperous's capture-and-input path, and
+  Prosperous is its host half. No code is shared between them either; what crosses is the
+  payload, and what it puts on the wire.
 
 **By document:**
 

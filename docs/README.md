@@ -28,7 +28,7 @@ sections. Read 1, 2 and 3 before changing anything:
 | §8 | Gates - including that a guard is not finished until somebody has made it fail |
 | §9 | Logging |
 
-Sections are cited by number and by anchor from all six repositories, so they are stable:
+Sections are cited by number and by anchor from all seven repositories, so they are stable:
 renaming one breaks links in code comments, `.gitattributes` files and CI workflows.
 
 **[ARCHITECTURE.md](ARCHITECTURE.md)** - how the four fit together. What crosses a boundary
@@ -57,7 +57,7 @@ once. See [tools/README.md](../tools/README.md).
 | | |
 |---|---|
 | `check-decisions.sh` | holds every `docs/DECISIONS.md` to §4, against a baseline that can only shrink |
-| `check-links.sh` | resolves every relative link and `#anchor` across all six repositories |
+| `check-links.sh` | resolves every relative link and `#anchor` across all seven repositories |
 | `check-workflows.sh` | every workflow that touches a project's source begins with the standard preamble |
 | `check-dashes.sh` | the house hyphen style, across the collection |
 | `split-decisions.sh`, `split-doc.sh` | regenerate a project's decision/worklog/backlog index from its per-entry files |

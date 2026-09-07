@@ -42,10 +42,10 @@
 # at the end and the exit code is non-zero if anything failed, so one run tells
 # you everything that is broken rather than only the first thing.
 #
-# Cross-platform bash: Linux, macOS, and Git Bash on Windows. obSCEne's C targets
-# need clang and lld, which on Windows means WSL; this detects that and re-enters
-# through WSL rather than failing with a compiler error that reads as a code
-# fault. Set OOPS_NO_WSL=1 to refuse instead of delegating.
+# Cross-platform bash: Linux, macOS, and Git Bash on Windows. The C repositories - obSCEne,
+# oops-sdk and oops-apps - need clang and lld, which on Windows means WSL; this detects
+# that and re-enters through WSL rather than failing with a compiler error that reads as a
+# code fault. Set OOPS_NO_WSL=1 to refuse instead of delegating.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -76,19 +76,28 @@ is_windows() {
     esac
 }
 
-# obSCEne's C targets need clang and lld. Under Git Bash there is usually neither,
-# so re-enter through WSL rather than emitting a compiler error that reads as a
-# code fault. obscene/CLAUDE.md documents why the split exists at all.
+# The C repositories need clang and lld. Under Git Bash there is usually neither, so
+# re-enter through WSL rather than emitting a compiler error that reads as a code fault.
+# obscene/CLAUDE.md documents why the split exists at all.
 needs_wsl() {
     is_windows || return 1
     command -v clang >/dev/null 2>&1 && return 1
     return 0
 }
 
+# Which repositories compile C for the target. obSCEne was the only one when the WSL
+# detour was written and `run_in` named it directly; oops-sdk and oops-apps build the
+# same way, and a check that knew only obSCEne handed them to a shell with no `make` in
+# it, where the failure reads as a missing program rather than the missing toolchain it
+# is.
+builds_c() {
+    case "$1" in obscene|oops-sdk|oops-apps) return 0 ;; *) return 1 ;; esac
+}
+
 run_via_wsl() {
     local dir="$1"; shift
-    [ -n "${OOPS_NO_WSL:-}" ] && die "obSCEne needs clang and lld; this shell has neither and OOPS_NO_WSL is set"
-    command -v wsl.exe >/dev/null 2>&1 || die "obSCEne needs clang and lld. Install WSL, or run this from Linux"
+    [ -n "${OOPS_NO_WSL:-}" ] && die "this needs clang and lld; the shell has neither and OOPS_NO_WSL is set"
+    command -v wsl.exe >/dev/null 2>&1 || die "this needs clang and lld. Install WSL, or run this from Linux"
     # `cygpath -m` and not `-w`: the backslashes in a `C:\...` path are eaten
     # before wslpath ever sees them, and it silently answers "C:gitOOPSobscene"
     # rather than failing. The forward-slash form survives the trip.
@@ -127,7 +136,7 @@ run_in() {
     fi
     step "$proj: $label"
     local status=0
-    if [ "$proj" = "obscene" ] && needs_wsl; then
+    if builds_c "$proj" && needs_wsl; then
         run_via_wsl "$dir" "$*" || status=$?
     else
         ( cd "$dir" && eval "$*" ) || status=$?
@@ -179,8 +188,8 @@ cmd_for() {
         printf 'bash ./bin/%s %s' "$proj" "$verb"
         return 0
     fi
-    # The fallback, for a project that has not grown an entry point yet. All five have one
-    # now - oops-libs was the last, so nothing reaches this today. Kept, and deliberately
+    # The fallback, for a project that has not grown an entry point yet. All seven have one
+    # now - oops-apps was the last, so nothing reaches this today. Kept, and deliberately
     # generic rather than a per-project table: a table listing projects that all have their
     # own script is dead code that still looks authoritative.
     [ -f "$ROOT/$proj/Cargo.toml" ] || return 1
@@ -303,8 +312,6 @@ owner_of() {
     printf '%s' "${url##*[:/]}"
 }
 
-# Fetch the four, or a named subset plus whatever that subset needs. This is the CI
-# entry point: a workflow clones the meta with no submodules and asks for what its
 # A token, when the sibling is private and the caller has one.
 #
 # Four of the five went private, and a workflow's own `GITHUB_TOKEN` is scoped to the one
@@ -323,6 +330,9 @@ clone_url() {
         printf 'https://github.com/%s/%s' "$1" "$2"
     fi
 }
+
+# Fetch the four, or a named subset plus whatever that subset needs. This is the CI
+# entry point: a workflow clones the meta with no submodules and asks for what its
 # job actually builds, rather than paying for five checkouts to build one.
 #
 # Three ways a sibling can arrive, tried in that order:
@@ -425,19 +435,24 @@ doctor() {
     have cargo "the three Rust projects need it: https://rustup.rs" || rc=1
     have git "needed to resolve what is ignored" || rc=1
 
-    step "obSCEne's C toolchain"
+    step "the C toolchain - obSCEne, oops-sdk and oops-apps"
     if needs_wsl; then
-        if command -v wsl.exe >/dev/null 2>&1; then
-            note "  no clang in this shell; obSCEne will be built through WSL"
+        if ! command -v wsl.exe >/dev/null 2>&1; then
+            printf '  %s--%s   no clang and no WSL - the C repositories cannot be built here\n' "$RED" "$OFF"; rc=1
+        # `wsl --list --quiet` prints nothing at all when WSL is installed with no
+        # distribution - the "no installed distributions" text goes nowhere a pipe can read -
+        # so an empty answer is the test. `tr` strips the UTF-16 padding from a real one.
+        elif MSYS_NO_PATHCONV=1 wsl.exe --list --quiet 2>/dev/null | tr -d '\r\0' | grep -q .; then
+            note "  no clang in this shell; the C repositories will be built through WSL"
         else
-            printf '  %s--%s   no clang and no WSL - obSCEne cannot be built here\n' "$RED" "$OFF"; rc=1
+            printf '  %s--%s   no clang, and WSL has no distribution - the C repositories cannot be built here\n' "$RED" "$OFF"; rc=1
         fi
     else
-        have clang "obSCEne compiles freestanding C with it" || rc=1
-        have make "obSCEne is a Makefile" || rc=1
+        have clang "the C repositories compile freestanding C with it" || rc=1
+        have make "obSCEne, oops-sdk and every app are Makefiles" || rc=1
     fi
 
-    step "the four"
+    step "the collection"
     for p in $PROJECTS; do
         if [ -d "$ROOT/$p" ]; then
             printf '  %sok%s   %s\n' "$GREEN" "$OFF" "$p"

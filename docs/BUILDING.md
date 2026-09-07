@@ -31,9 +31,9 @@ That is also why CI uses these: the moment the command CI runs and the command a
 are different commands, one of them is untested, and it is always the one nobody watches.
 
 There is a fallback for a project that has not grown an entry point yet - it is treated as a
-plain cargo workspace - but all six have one, both libraries included. oops-sdk is the one
-that is not cargo at all: its entry point wraps `make`, which is exactly why the fallback
-cannot be the interface.
+plain cargo workspace - but all seven have one, the libraries and oops-apps included. oops-sdk
+and oops-apps are the ones that are not cargo at all: their entry points wrap `make`, which is
+exactly why the fallback cannot be the interface.
 
 ### There is no `<project>.sh` any more
 
@@ -87,6 +87,7 @@ the others do not, reached through the same entry point:
 | **selfish** | `provenance`, `links` |
 | **oops-libs** | none |
 | **oops-sdk** | any make target by name; `test`/`lint`/`fmt`/`doc` fail loudly until wired |
+| **oops-apps** | `list`, `dist`; `test`/`lint`/`fmt`/`doc` are not carried yet, and are refused rather than passed |
 
 Two of those are deliberately *not* folded into a shared verb. orbistoun's `fix` applies clippy
 suggestions as well as formatting, which is a mutating operation that should be asked for by
@@ -114,6 +115,7 @@ selfish      ← oops-libs
 orbistoun    ← oops-libs
 prosperous   ← oops-libs
 obscene      ← selfish, prosperous, oops-libs, and oops-sdk (a C/make edge, not a Cargo one)
+oops-apps    ← oops-sdk            (every app's Makefile includes ../../oops-sdk/oops-sdk.mk)
 ```
 
 **Every project takes oops-libs**, so nothing here builds from a clone of only its own
@@ -122,8 +124,9 @@ requirement everywhere rather than in two places, and "SELFish is the bottom of 
 depends on nothing" - which its own entry point and CI still say - has stopped being true.
 The claim is worth keeping as a goal; it is not a description.
 
-`oops bootstrap` follows those edges: `bootstrap obscene` fetches selfish, prosperous and
-oops-libs as well, because obSCEne does not build without them.
+`oops bootstrap` follows those edges: `bootstrap obscene` fetches selfish, prosperous,
+oops-libs and oops-sdk as well, because obSCEne does not build without them, and
+`bootstrap oops-apps` fetches oops-sdk, plus selfish for the day an app packages.
 
 Each project's own `docs/BUILDING.md` covers what that one needs, what its `check` runs, and
 what its CI runs:
@@ -132,15 +135,19 @@ what its CI runs:
 [Prosperous](https://github.com/project-oops/Prosperous/blob/main/docs/BUILDING.md) ·
 [SELFish](https://github.com/project-oops/SELFish/blob/main/docs/BUILDING.md) ·
 [oops-libs](https://github.com/project-oops/oops-libs/blob/main/docs/BUILDING.md) ·
-[oops-sdk](https://github.com/project-oops/oops-sdk/blob/main/docs/BUILDING.md)
+[oops-sdk](https://github.com/project-oops/oops-sdk/blob/main/docs/BUILDING.md) ·
+[oops-apps](https://github.com/project-oops/oops-apps#building-an-app)
 
 ## Windows, WSL, and why obSCEne is different
 
-The three Rust projects build anywhere. obSCEne compiles freestanding C with `clang` and
-`lld`, which under Git Bash usually means neither is present.
+The Rust builds anywhere. obSCEne, oops-sdk and oops-apps compile freestanding C for the
+target with `clang` and `lld`, which under Git Bash usually means neither is present.
 
-`oops` detects that and re-enters through WSL rather than failing with a compiler error that
-reads as a code fault. `OOPS_NO_WSL=1` refuses instead of delegating.
+`oops` detects that and re-enters through WSL for those three rather than failing with a
+compiler error that reads as a code fault - or, for the two that are only a Makefile, with
+`make: command not found`, which reads as nothing at all. `OOPS_NO_WSL=1` refuses instead of
+delegating. A WSL with no distribution installed is the same as no WSL, and `oops doctor`
+says which of the two it found.
 
 Two things had to be handled for that to work at all, and both fail in ways that point at the
 wrong thing:
@@ -195,7 +202,7 @@ checkouts.
 
 ### A private sibling needs a token
 
-All six repositories are public, so `bootstrap` clones a sibling with no credential and this
+All seven repositories are public, so `bootstrap` clones a sibling with no credential and this
 section is here for the day one of them is not.
 
 They were private for about twenty minutes, and it broke immediately: a workflow's own

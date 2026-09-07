@@ -20,15 +20,20 @@ each project's own site from there.
 | **[Prosperous](https://github.com/project-oops/Prosperous)** | the instrument | remote management for anything that runs Orbis software |
 | **[SELFish](https://github.com/project-oops/SELFish)** | the formats | read, write and build tools for the platform's own file formats |
 
-Underneath them, two libraries, and neither is a fifth project - OOPS is still the four above.
-Things go into either because they were already being written twice, not because they might be
-shared:
+Beside them, three more repositories, and none of them is a fifth project - OOPS is still the
+four above. Two are libraries, and things go into either because they were already being
+written twice, not because they might be shared; the third is what gets built on one of them:
 
 - **[oops-libs](https://github.com/project-oops/oops-libs)** - Rust, and what the **host-side
   tools** share: the build stamp, logging, paths and the in-app documentation viewer.
 - **[oops-sdk](https://github.com/project-oops/oops-sdk)** - freestanding C, and what the
   **target-side payloads** share: display, input, audio, direct memory, time, threads and
   sockets. Nothing links both.
+- **[oops-apps](https://github.com/project-oops/oops-apps)** - the **homebrew built on
+  oops-sdk**: Porthole, the target half of Prosperous's capture-and-input path, and the smaller
+  apps beside it. It depends on the collection rather than being depended on, and is swept so
+  that a change to the SDK that breaks an app shows up here. An app *does* something; a probe
+  *measures* something and belongs in obSCEne, which is the line that keeps the two apart.
 
 **This is the development entry point.** Clone it and you have everything, arranged so it
 builds - which matters because the four depend on each other and that is expected to
@@ -50,6 +55,7 @@ OOPS/                ← this meta-repo: the shared rules, the cross-project gat
   selfish/           ← submodule - the formats
   oops-libs/         ← submodule - the shared Rust the host-side tools use
   oops-sdk/          ← submodule - the shared C the target-side payloads link
+  oops-apps/         ← submodule - the homebrew built on oops-sdk
   docs/              ← conventions, architecture, publishing
   tools/             ← the checks that need the whole collection checked out at once
 ```
@@ -66,8 +72,8 @@ Directory names are lower-case because those build paths depend on it - see
 
 ## Quickstart
 
-Prerequisite: a Rust toolchain. obSCEne's C targets additionally need `clang` and `lld` under
-WSL or Linux; the others build anywhere.
+Prerequisite: a Rust toolchain. obSCEne, oops-sdk and oops-apps compile C for the target and
+additionally need `clang` and `lld` under WSL or Linux; the rest builds anywhere.
 
 ```bash
 git clone --recurse-submodules https://github.com/project-oops/OOPS
@@ -227,13 +233,14 @@ both sides**, not an oversight - see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md
 
 ## Status
 
-**Published, and wired as submodules.** All six repositories - the four projects and the two
-libraries - have a commit, a remote and a public `main` under
-[github.com/project-oops](https://github.com/project-oops), and each is a submodule of this
-one, pinned to a revision. A clone of this repository with `--recurse-submodules`, or a plain
-clone followed by `oops bootstrap`, brings the whole collection down at the layout the builds
-expect. [docs/PUBLISHING.md](docs/PUBLISHING.md) has what was done and the one step still
-outstanding.
+**Published, and wired as submodules.** All seven repositories - the four projects, the two
+libraries and oops-apps - are submodules of this one, each pinned to a revision. Six have a
+commit, a remote and a public `main` under
+[github.com/project-oops](https://github.com/project-oops); oops-apps has its first commit and
+its remote, and its first push is the step still outstanding. A clone of this repository with
+`--recurse-submodules`, or a plain clone followed by `oops bootstrap`, brings the collection
+down at the layout the builds expect. [docs/PUBLISHING.md](docs/PUBLISHING.md) has what was
+done and what is still outstanding.
 
 ## One directory, shared
 
@@ -274,6 +281,8 @@ the Rust ecosystem convention, and the same terms every project in the collectio
   what is allowed into them
 - [oops-sdk](https://github.com/project-oops/oops-sdk) - the shared target-side C, and the same
   rule applied to a payload rather than a tool
+- [oops-apps](https://github.com/project-oops/oops-apps) - the homebrew built on oops-sdk, and
+  the line between an app and a probe
 
 Each project carries its own decision log, worklog and workflow, and states the principles
 it adds to [CONVENTIONS.md](docs/CONVENTIONS.md). Read this and then the one you are working
