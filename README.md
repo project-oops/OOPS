@@ -74,8 +74,9 @@ Directory names are lower-case because those build paths depend on it - see
 
 Prerequisite: a Rust toolchain. obSCEne, oops-sdk and oops-apps compile C for the target and
 additionally need `clang` and `lld` under WSL or Linux; the rest builds anywhere.
-On Windows, `./bin/oops setup` installs that side for you - WSL, the Ubuntu distribution, and
-the toolchain inside it - and `./bin/oops doctor` then says whether it worked.
+On Windows, `./bin/oops setup` installs that side for you - WSL, a build distribution of the
+collection's own called `oops-builder`, and the toolchain inside it - and `./bin/oops doctor`
+then says whether it worked. It never touches a WSL distribution you set up yourself.
 
 
 ```bash
@@ -86,7 +87,7 @@ cd OOPS
 Then `bin/oops`, the one vocabulary over four projects that do not share one:
 
 ```bash
-./bin/oops setup           # Windows: WSL, the Ubuntu distribution, the toolchain inside it
+./bin/oops setup           # Windows: WSL, the oops-builder distribution, the toolchain in it
 ./bin/oops doctor          # can this machine build all four
 ./bin/oops build           # everything, or: ./bin/oops build orbistoun
 ./bin/oops test            # everything, or: ./bin/oops test prosperous

@@ -63,7 +63,7 @@ once. See [tools/README.md](../tools/README.md).
 | `split-decisions.sh`, `split-doc.sh` | regenerate a project's decision/worklog/backlog index from its per-entry files |
 | `build-docs.sh` | renders each project's `docs/` for its Pages site - this page included |
 | `publish-profile.sh` | assembles the organisation's landing page from the root README |
-| `setup-wsl.sh` | makes a Windows machine able to build the C repositories: WSL, Ubuntu, the toolchain inside it. `./bin/oops setup` |
+| `setup-wsl.sh` | makes a Windows machine able to build the C repositories: WSL, an `oops-builder` distribution, the toolchain inside it. `./bin/oops setup` |
 
 ## Diagrams
 

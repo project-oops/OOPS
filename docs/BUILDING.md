@@ -149,10 +149,26 @@ compiler error that reads as a code fault - or, for the two that are only a Make
 delegating. A WSL with no distribution installed is the same as no WSL, and `oops doctor`
 says which of the two it found.
 
-`./bin/oops setup` does the Windows side. It installs the Ubuntu distribution when WSL has
-none, and inside it the toolchain obSCEne documents plus what the other two C repositories
-need. It is `tools/setup-wsl.sh`, it runs again harmlessly, and `--dry-run` says what it would
-do without doing it. On a Linux machine the same script installs the same packages directly.
+`./bin/oops setup` does the Windows side. It registers a distribution of the collection's own,
+**`oops-builder`**, from the Ubuntu image, and installs into it the toolchain obSCEne documents
+plus what the other two C repositories need. It is `tools/setup-wsl.sh`, it runs again
+harmlessly, and `--dry-run` says what it would do without doing it. On a Linux machine the same
+script installs the same packages directly.
+
+**A distribution of its own, not yours.** An Ubuntu you already have holds your work, your
+packages and your account, and a setup script that installs "Ubuntu" either collides with that
+or adopts it and starts changing it. `oops-builder` says what it is for and is disposable with
+`wsl --unregister oops-builder`. It runs as **root**, because a distribution with one job has
+one occupant and an account would exist only to own a rustup; `[user] default=root` is pinned
+in it so nothing ever asks for a username. Set `WSL_DISTRO` to build in your own instead, and
+nothing of its configuration is rewritten.
+
+**Nothing here trusts WSL's default distribution**, and neither should anything you add.
+Installing Docker Desktop registers `docker-desktop` and makes it the default on a machine
+that had no other. Both this and `setup` pick `WSL_DISTRO`, else `oops-builder`, else the
+default only when it is one a person could build in, else the first that is. The same applies
+to `wslpath`: Docker's appliance mounts Windows drives at `/mnt/host/c` rather than `/mnt/c`,
+so a translation asked of the wrong distribution comes back correct and useless.
 
 Two things had to be handled for that to work at all, and both fail in ways that point at the
 wrong thing:

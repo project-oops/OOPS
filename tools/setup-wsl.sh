@@ -45,10 +45,24 @@
 #     too, but a Windows rustup wants the MSVC build tools, which is a download measured in
 #     gigabytes and somebody else's licence to accept.
 #
-# The distribution's own first run asks for a username and a password. That is why this wants
-# a real terminal rather than a pipe, and why installing one is where the first run stops:
-# rustup installed before that prompt lands in root's home, where the person who then builds
-# cannot see it.
+# # A distribution of its own, called oops-builder, running as root
+#
+# It does not install "Ubuntu". Somebody's WSL is theirs, and an Ubuntu they already have may
+# hold their work, their packages and their account; a setup script that installs that name
+# either collides with it or quietly adopts it and starts changing it. This registers
+# `oops-builder` from the Ubuntu image instead, which says what it is for, cannot be mistaken
+# for anything a person set up, and is thrown away whole with one command:
+#
+#     wsl --unregister oops-builder
+#
+# Inside it, root. A distribution with one job has one occupant, and an account would exist
+# only to own a rustup - at the cost of choosing somebody a password. So the toolchain goes
+# into root's home, `run_via_wsl` finds it there because `$HOME/.cargo/env` is whatever home
+# the shell has, and `[user] default=root` is pinned in `/etc/wsl.conf` so that an interactive
+# `wsl -d oops-builder` never starts asking for a username either.
+#
+# None of that touches a distribution somebody else made. Point `WSL_DISTRO` at your own and
+# this installs the toolchain there, as you, and rewrites none of its configuration.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -102,7 +116,22 @@ PACKAGES="clang lld binutils gcc libc6-dev make clang-format zip unzip python3 c
 # not, and `oops lint` and `oops fmt` are what notice.
 RUST_COMPONENTS="clippy rustfmt"
 
-DISTRO_DEFAULT="Ubuntu"
+# The distribution this creates, and the image it is made from.
+#
+# **A name of its own, rather than `Ubuntu`.** Somebody's WSL is theirs. They may already have
+# an Ubuntu with their work in it, their packages and their account, and a setup script that
+# installs "Ubuntu" either collides with that or silently adopts it and starts changing it.
+# `oops-builder` says what it is for, cannot be confused with anything a person set up
+# themselves, and can be thrown away whole - `wsl --unregister oops-builder` - without anybody
+# having to work out what else was in there.
+#
+# `--name` needs WSL 2.4 or newer. Older than that is reported rather than worked around.
+DISTRO_NAME="${OOPS_WSL_NAME:-oops-builder}"
+DISTRO_IMAGE="${OOPS_WSL_IMAGE:-Ubuntu}"
+
+# Where its disk goes. Unset means WSL's own choice, which is the right default; this exists
+# because the VHD grows to several gigabytes and not every machine wants that on C:.
+DISTRO_LOCATION="${OOPS_WSL_LOCATION:-}"
 
 is_windows() {
     case "$(uname -s 2>/dev/null || echo unknown)" in
@@ -253,14 +282,20 @@ verify() {
 # backslashes in a Windows path are eaten before wslpath sees them and it answers a mangled
 # path rather than failing.
 to_wsl_path() {
-    local win out
-    win="$(cygpath -m "$1")"
-    out="$(MSYS_NO_PATHCONV=1 wsl.exe wslpath -a "$win" 2>/dev/null | tr -d '\r\0')"
+    local distro="$1" win out
+    win="$(cygpath -m "$2")"
+    # **`-d`, and this one cost a whole run.** Windows drives are not mounted at the same
+    # place in every distribution, and `wslpath` answers for the one it is asked. Without
+    # `-d` that is WSL's default - Docker Desktop's appliance on this machine, which mounts
+    # them under `/mnt/host/c`. The translation came back correct for Docker and meaningless
+    # for the builder, which reported `No such file or directory` for a script that is plainly
+    # there. Ask the distribution the path is actually for.
+    out="$(MSYS_NO_PATHCONV=1 wsl.exe -d "$distro" wslpath -a "$win" 2>/dev/null | tr -d '\r\0')"
     case "$out" in
         /*) printf '%s' "$out" ;;
         # The default mount root, when wslpath could not be asked. wslpath is preferred
         # because it honours a non-default `root =` in wsl.conf, which this cannot know.
-        *)  printf '%s' "$1" | sed 's|^/\([a-zA-Z]\)/|/mnt/\1/|' ;;
+        *)  printf '%s' "$2" | sed 's|^/\([a-zA-Z]\)/|/mnt/\1/|' ;;
     esac
 }
 
@@ -283,18 +318,29 @@ distros() {
         grep -viE '^(docker-desktop(-data)?|rancher-desktop(-data)?|podman-machine.*)$' || true
 }
 
-# The distribution to work in: WSL_DISTRO if set, else WSL's own default. The default is the
-# line `--list --verbose` marks with `*`, which is a marker rather than a word and so survives
-# a Windows in any language.
+# The distribution to work in, in order of preference:
 #
-# The default is only taken when it is one of the distributions above, because installing
-# Docker Desktop makes `docker-desktop` the default on a machine that had no other, and
-# handing the toolchain to that would fail somewhere much less obvious than here. Otherwise
-# the first usable one, which is also the fallback if that `*` ever changes shape.
+#   1. WSL_DISTRO, when somebody has said outright which one they mean
+#   2. the one this script makes, when it is there - a machine with `oops-builder` on it has
+#      already answered this question
+#   3. WSL's own default, but only when that is one a person could build in. Installing Docker
+#      Desktop makes `docker-desktop` the default on a machine that had no other, and handing
+#      the toolchain to Docker's Alpine appliance fails somewhere much less obvious than here
+#   4. the first usable one, which is also the fallback if that `*` marker changes shape
+#
+# The `*` in `--list --verbose` marks the default. It is a marker rather than a word, so it
+# survives a Windows in any language, which the word beside it would not.
+#
+# `bin/oops` picks by the identical rule and says so. If the two ever disagreed, this would
+# install the toolchain into one distribution and every build would look for it in another.
 target_distro() {
     if [ -n "${WSL_DISTRO:-}" ]; then printf '%s' "$WSL_DISTRO"; return 0; fi
     local marked usable
     usable="$(distros)"
+    if printf '%s\n' "$usable" | grep -qxF "$DISTRO_NAME"; then
+        printf '%s' "$DISTRO_NAME"
+        return 0
+    fi
     marked="$(MSYS_NO_PATHCONV=1 wsl.exe --list --verbose 2>/dev/null | tr -d '\r\0' |
         awk '/^\*/ { print $2; exit }')"
     if [ -n "$marked" ] && printf '%s\n' "$usable" | grep -qxF "$marked"; then
@@ -331,40 +377,40 @@ outer() {
 
     local have
     have="$(distros)"
+    [ -n "$have" ] && note "  other distributions here: $(printf '%s' "$have" | tr '\n' ' ')"
 
-    if [ -z "$have" ]; then
-        note "  WSL has no distribution installed"
-        step "installing $DISTRO_DEFAULT"
+    if ! printf '%s\n' "$have" | grep -qxF "$DISTRO_NAME"; then
+        step "installing $DISTRO_NAME"
         # Only for installs made after it, so it is set here rather than reported: an existing
         # version-1 distribution is somebody's decision and not this script's to change.
         run env MSYS_NO_PATHCONV=1 wsl.exe --set-default-version 2 >/dev/null 2>&1 || true
+
         # `--no-launch`, and this was learned the hard way. Without it `wsl --install` ends by
         # starting the distribution so it can ask for a username and a password, and a shell
-        # that is not a terminal never answers: the install sits there, every later `wsl -d
-        # Ubuntu` blocks behind it, and killing the caller leaves an orphaned client still
-        # holding the distribution. That is a wedge nobody would diagnose from the symptom,
-        # which was "the whole of WSL stopped responding".
-        #
-        # Registered and not launched, the account is the person's to create on their own
-        # first run, which is the check immediately below.
-        note "  registering it without launching it; the first run is yours to do"
-        run env MSYS_NO_PATHCONV=1 wsl.exe --install -d "$DISTRO_DEFAULT" --no-launch || {
-            bad "installing $DISTRO_DEFAULT failed"
+        # that is not a terminal never answers: the install sits there, every later call to
+        # that distribution queues behind it, and killing the caller leaves an orphaned client
+        # still holding it. The symptom is that the whole of WSL stops responding, which names
+        # nothing. Registered and never launched, there is no prompt to miss.
+        local -a install_cmd
+        install_cmd=(env MSYS_NO_PATHCONV=1 wsl.exe --install "$DISTRO_IMAGE"
+                     --name "$DISTRO_NAME" --no-launch)
+        [ -n "$DISTRO_LOCATION" ] && install_cmd+=(--location "$DISTRO_LOCATION")
+        note "  $DISTRO_IMAGE, registered as $DISTRO_NAME, not launched"
+        run "${install_cmd[@]}" || {
+            bad "installing $DISTRO_NAME failed"
             printf '\n'
-            printf 'If that reported an unrecognised option, this Windows has a WSL too old for\n'
-            printf '--no-launch. Install it yourself, from a real terminal so it can ask for the\n'
-            printf 'username and password it wants:\n\n'
-            printf '    wsl --install -d %s\n\n' "$DISTRO_DEFAULT"
-            printf 'then run this again.\n'
+            printf 'If that reported an unrecognised option, this WSL is older than 2.4 and cannot\n'
+            printf 'name a distribution. `wsl --version` says which it is; updating Windows or\n'
+            printf '`wsl --update` is the fix, and installing %s by hand is the way round it.\n' "$DISTRO_IMAGE"
             return 1
         }
         if [ "$DRY" -eq 1 ]; then
             note "  (dry run: the toolchain would then be installed inside it)"
             return 0
         fi
-        ok "$DISTRO_DEFAULT installed"
+        ok "$DISTRO_NAME registered"
     else
-        ok "distributions: $(printf '%s' "$have" | tr '\n' ' ')"
+        ok "$DISTRO_NAME already registered"
     fi
 
     local distro
@@ -372,30 +418,31 @@ outer() {
     [ -n "$distro" ] || die "WSL reports no distribution to work in, even after installing one"
     note "  working in: $distro"
 
-    # Whose home the toolchain would land in. Before the distribution's first-run prompt is
-    # answered there is no user yet and this answers `root`, and a rustup installed then goes
-    # into root's home where the person who later builds cannot see it. That is a bad state to
-    # create silently, so it is a stop with the one thing left to do.
-    if [ "$DRY" -eq 0 ]; then
-        local who
-        who="$(MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe -d "$distro" -- \
-            bash -lc 'whoami' 2>/dev/null | tr -d '\r\0')"
-        if [ "$who" = "root" ]; then
-            bad "$distro has no user account yet"
-            printf '\n'
-            printf 'Its first run asks for a username and a password, and until that is answered\n'
-            printf 'everything here runs as root - rustup would install into root'"'"'s home, where\n'
-            printf 'the account you build from cannot see it. Open it once:\n\n'
-            printf '    wsl -d %s\n\n' "$distro"
-            printf 'answer the two prompts, exit, and run this again.\n'
-            return 1
-        fi
-        note "  as user: $who"
+    # **Root, deliberately, and only in the distribution this script made.**
+    #
+    # A named build distribution has one job and one occupant. Creating an account in it would
+    # mean choosing a password on somebody's behalf, and the account would exist only to own a
+    # rustup - so the toolchain goes in root's home and `run_via_wsl` finds it there, because
+    # `$HOME/.cargo/env` is whatever home the shell has.
+    #
+    # `[user] default=root` is written rather than assumed. A fresh Ubuntu image with no
+    # account still carries its first-run setup, and an interactive `wsl -d oops-builder` would
+    # otherwise start asking for a username - the same prompt this script exists to keep clear
+    # of. Pinning the default retires it.
+    #
+    # Only when this is the distribution named here. Somebody who points WSL_DISTRO at their
+    # own Ubuntu gets their own user and their own home, and nothing rewrites their config.
+    if [ "$DRY" -eq 0 ] && [ "$distro" = "$DISTRO_NAME" ]; then
+        MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe -d "$distro" -u root -- \
+            bash -c 'grep -q "^default *= *root" /etc/wsl.conf 2>/dev/null ||
+                     printf "\n[user]\ndefault=root\n" >> /etc/wsl.conf' ||
+            { bad "could not pin the default user in $distro"; return 1; }
+        ok "runs as root, which is what a build distribution is for"
     fi
 
     step "handing over to $distro"
     local self
-    self="$(to_wsl_path "$HERE/setup-wsl.sh")"
+    self="$(to_wsl_path "$distro" "$HERE/setup-wsl.sh")"
     note "  $self --inside"
 
     # MSYS_NO_PATHCONV, or Git Bash rewrites the `/mnt/c/...` argument on its way to a Windows

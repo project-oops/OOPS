@@ -168,13 +168,25 @@ Makes a Windows machine able to build the three C repositories, which is the gap
 `oops doctor` reports and cannot close. `./bin/oops setup` is the same script.
 
 ```bash
-tools/setup-wsl.sh              # WSL's Ubuntu distribution if there is none, then the toolchain inside it
+tools/setup-wsl.sh              # the oops-builder distribution if there is none, then the toolchain in it
 tools/setup-wsl.sh --dry-run    # what it would do
 tools/setup-wsl.sh --inside     # the Linux half alone, which is also what runs on a Linux machine
 ```
 
-Ubuntu and not something smaller: CI is `ubuntu-latest`, obSCEne's scripts name the
-distribution `Ubuntu`, and its host harness records what it expects against glibc, so a musl
+**It makes a distribution of its own, called `oops-builder`, and runs as root in it.** Your
+WSL is yours: an Ubuntu you already have holds your work, your packages and your account, and
+a script that installs "Ubuntu" either collides with that or adopts it and starts changing it.
+`oops-builder` says what it is for, cannot be mistaken for anything you set up, and is thrown
+away whole with `wsl --unregister oops-builder`. Root because a distribution with one job has
+one occupant, and an account would exist only to own a rustup at the cost of choosing somebody
+a password; `[user] default=root` is pinned in its `/etc/wsl.conf`, so an interactive
+`wsl -d oops-builder` never starts asking for a username either. `OOPS_WSL_NAME` renames it,
+`OOPS_WSL_IMAGE` changes the image it comes from, and `OOPS_WSL_LOCATION` puts its disk
+somewhere other than WSL's choice. Point `WSL_DISTRO` at a distribution of your own and it
+installs the toolchain there, as you, rewriting none of its configuration.
+
+The image is Ubuntu and not something smaller: CI is `ubuntu-latest`, obSCEne's scripts name
+the distribution, and its host harness records what it expects against glibc, so a musl
 distribution would disagree with every one of those entries while measuring correctly.
 
 It installs what [obscene/CLAUDE.md](../obscene/CLAUDE.md) lists - `clang lld binutils gcc
@@ -183,25 +195,31 @@ gate, `zip` and `unzip` for the package and release jobs, `python3`, which
 `obscene/scripts/build-pkg.sh` shells out to for one file and Ubuntu ships regardless, and
 `curl` with `ca-certificates`, because rustup's installer arrives over https and would
 otherwise fail inside this script rather than before it. Everything is install-if-missing, so
-it runs again after a partial failure without starting over. Both this and `bin/oops` build in
-the first distribution below, and deliberately **not** in WSL's default one; set `WSL_DISTRO`
-to name another, which is the variable obSCEne's scripts read too.
+it runs again after a partial failure without starting over.
 
-It registers the distribution with `--no-launch` and stops, because the account inside it is
-yours to make. Left to launch itself, `wsl --install` ends by asking for a username and a
-password, and a shell that is not a terminal never answers: the install sits there, every
-later call to that distribution queues behind it, and killing the caller leaves an orphaned
-client still holding it. The symptom is that the whole of WSL stops responding, which names
-nothing. So the first run is a person's to do, `wsl -d Ubuntu` once, and this says so and
-exits rather than installing rustup into root's home where the account that builds cannot
-see it.
+It registers with **`--no-launch`**, which is not a detail. Left to launch itself,
+`wsl --install` ends by asking for a username and a password, and a shell that is not a
+terminal never answers: the install sits there, every later call to that distribution queues
+behind it, and killing the caller leaves an orphaned client still holding it. What that looks
+like from outside is the whole of WSL refusing to respond, `wsl --terminate` included, and
+nothing in it names a prompt.
 
-**A container runtime's own WSL distribution does not count as one**, here or in `doctor`.
-Docker Desktop registers `docker-desktop` on the WSL2 backend, and Rancher and podman do the
-same under their own names; they are appliances rather than anywhere a toolchain goes, and
-Docker's is Alpine. Counted, installing Docker Desktop would make `doctor` report that this
-machine can build the C repositories without anything having changed about whether it can.
-Both filter the same names.
+**Nothing may trust WSL's default distribution**, here or in `bin/oops`. Docker Desktop
+registers `docker-desktop` on the WSL2 backend, Rancher and podman the same under their own
+names; they are appliances rather than anywhere a toolchain goes, and Docker's is Alpine.
+Installing Docker Desktop also makes it the *default* on a machine that had no other. So both
+filter those names out of "distributions that exist", and both choose by one rule: `WSL_DISTRO`,
+else `oops-builder`, else the default only when it is one a person could build in, else the
+first that is. The rule is written in both files because `setup-wsl.sh` has to run where
+`bin/oops` never has; each says the other must agree, since a disagreement would install the
+toolchain into one distribution and look for it in another.
+
+**The same applies to `wslpath`.** Windows drives are not mounted at the same place in every
+distribution - Docker's appliance uses `/mnt/host/c` where Ubuntu uses `/mnt/c` - and
+`wslpath` answers for whichever distribution it is asked. Asked of the default rather than the
+one about to run the build, it returns a path that is correct for a distribution nothing will
+run in, and the build reports `No such file or directory` for a directory that is plainly
+there. Both pass `-d`.
 
 Two things it does not do, and says so: enable the WSL feature itself, which needs an
 elevated prompt and a reboot, and install rustup on the Windows side, which wants the MSVC

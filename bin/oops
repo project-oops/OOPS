@@ -115,16 +115,32 @@ wsl_distros() {
         grep -viE '^(docker-desktop(-data)?|rancher-desktop(-data)?|podman-machine.*)$' || true
 }
 
-# The distribution to build in, by the same rule tools/setup-wsl.sh picks with: WSL_DISTRO if
-# set, else WSL's default when that is one a person could build in, else the first that is.
+# The distribution to build in, in order of preference:
 #
-# The two must agree. They are separate copies - that script has to run on a machine where
-# this one has never worked - and if they ever disagreed, `setup` would install the toolchain
-# into one distribution and every build would look for it in another.
+#   1. WSL_DISTRO, when somebody has said outright which one they mean
+#   2. `oops-builder`, the one `oops setup` makes - a distribution of the collection's own so
+#      that installing a toolchain never touches an Ubuntu somebody else set up and is using
+#   3. WSL's own default, but only when that is one a person could build in
+#   4. the first usable one
+#
+# **Never simply the default.** Docker Desktop registers `docker-desktop` on the WSL2 backend
+# and becomes the default on a machine that had no other, which is what happened on the
+# machine this was written on: `wsl --list` showed `* docker-desktop` beside a working
+# builder. Passing no `-d` would send every C build into Docker's Alpine appliance to fail on
+# a missing compiler, naming no Linux at all.
+#
+# tools/setup-wsl.sh picks by the identical rule and says so. They are separate copies -
+# that script has to run on a machine where this one has never worked - and if they ever
+# disagreed, `setup` would install the toolchain into one distribution and every build would
+# look for it in another.
 wsl_target() {
     if [ -n "${WSL_DISTRO:-}" ]; then printf '%s' "$WSL_DISTRO"; return 0; fi
-    local marked usable
+    local marked usable ours="${OOPS_WSL_NAME:-oops-builder}"
     usable="$(wsl_distros)"
+    if printf '%s\n' "$usable" | grep -qxF "$ours"; then
+        printf '%s' "$ours"
+        return 0
+    fi
     marked="$(MSYS_NO_PATHCONV=1 wsl.exe --list --verbose 2>/dev/null | tr -d '\r\0' |
         awk '/^\*/ { print $2; exit }')"
     if [ -n "$marked" ] && printf '%s\n' "$usable" | grep -qxF "$marked"; then
@@ -155,11 +171,24 @@ run_via_wsl() {
     local dir="$1"; shift
     [ -n "${OOPS_NO_WSL:-}" ] && die "this needs clang and lld; the shell has neither and OOPS_NO_WSL is set"
     command -v wsl.exe >/dev/null 2>&1 || die "this needs clang and lld. Install WSL, or run this from Linux"
+    # Which distribution, before anything is translated for it. `WSL_DISTRO` names one - the
+    # variable obscene's own scripts read - and unset, `wsl_target` picks by the rule above.
+    local distro
+    distro="$(wsl_target)"
+    [ -n "$distro" ] || die "no WSL distribution to build in. ./bin/oops setup installs one"
+
     # `cygpath -m` and not `-w`: the backslashes in a `C:\...` path are eaten
     # before wslpath ever sees them, and it silently answers "C:gitOOPSobscene"
     # rather than failing. The forward-slash form survives the trip.
+    #
+    # **`-d "$distro"`, and this is not decoration.** Windows drives are not mounted at the
+    # same place in every distribution and `wslpath` answers for whichever one it is asked.
+    # Without `-d` that is WSL's default, which on this machine is Docker Desktop's appliance,
+    # and it mounts them under `/mnt/host/c` rather than `/mnt/c`. The answer comes back
+    # perfectly correct for a distribution nothing is going to run in, and the build then
+    # reports `No such file or directory` for a directory that is plainly there.
     local wpath
-    wpath="$(wsl.exe wslpath -a "$(cygpath -m "$dir")" 2>/dev/null | tr -d '\r')"
+    wpath="$(MSYS_NO_PATHCONV=1 wsl.exe -d "$distro" wslpath -a "$(cygpath -m "$dir")" 2>/dev/null | tr -d '\r\0')"
     # Fall back to the default mount root. wslpath is preferred because it honours
     # a non-default `root =` in wsl.conf, which this cannot know about.
     case "$wpath" in
@@ -167,7 +196,7 @@ run_via_wsl() {
         *) wpath="$(printf '%s' "$dir" | sed 's|^/\([a-zA-Z]\)/|/mnt/\1/|')" ;;
     esac
     [ -n "$wpath" ] || die "could not translate $dir into a WSL path"
-    note "via WSL: $wpath"
+    note "via WSL: $distro:$wpath"
     # MSYS_NO_PATHCONV, or Git Bash rewrites the `/mnt/c/...` argument on its way
     # to a Windows executable and wsl.exe is handed
     # `C:/Program Files/Git/mnt/c/...`. It then fails with ERROR_PATH_NOT_FOUND
@@ -177,19 +206,6 @@ run_via_wsl() {
     # shadows it. That cargo is old enough to refuse a version-4 lock file, and it
     # says so as a lock-file parse error rather than as a version problem. This is
     # rustup's own file, not a guess at what it does.
-    # `WSL_DISTRO` names the distribution - the variable obscene's own scripts read. Unset,
-    # this picks the first one a person could build in, and pointedly NOT WSL's default.
-    #
-    # The default is a trap here. Docker Desktop registers `docker-desktop` on the WSL2
-    # backend and becomes the default on a machine that had no other distribution, which is
-    # exactly the machine this was written on: `wsl --list` showed `* docker-desktop` beside
-    # a perfectly good Ubuntu. Passing no `-d` would have sent every C build into Docker's
-    # Alpine appliance, to fail on a missing compiler with nothing saying which Linux it was
-    # talking about.
-    local distro
-    distro="$(wsl_target)"
-    [ -n "$distro" ] || die "no WSL distribution to build in. ./bin/oops setup installs one"
-    note "in: $distro"
     MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe -d "$distro" --cd "$wpath" -- \
         bash -lc 'if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi; '"$*"
 }
