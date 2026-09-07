@@ -115,6 +115,42 @@ wsl_distros() {
         grep -viE '^(docker-desktop(-data)?|rancher-desktop(-data)?|podman-machine.*)$' || true
 }
 
+# The distribution to build in, by the same rule tools/setup-wsl.sh picks with: WSL_DISTRO if
+# set, else WSL's default when that is one a person could build in, else the first that is.
+#
+# The two must agree. They are separate copies - that script has to run on a machine where
+# this one has never worked - and if they ever disagreed, `setup` would install the toolchain
+# into one distribution and every build would look for it in another.
+wsl_target() {
+    if [ -n "${WSL_DISTRO:-}" ]; then printf '%s' "$WSL_DISTRO"; return 0; fi
+    local marked usable
+    usable="$(wsl_distros)"
+    marked="$(MSYS_NO_PATHCONV=1 wsl.exe --list --verbose 2>/dev/null | tr -d '\r\0' |
+        awk '/^\*/ { print $2; exit }')"
+    if [ -n "$marked" ] && printf '%s\n' "$usable" | grep -qxF "$marked"; then
+        printf '%s' "$marked"
+        return 0
+    fi
+    printf '%s\n' "$usable" | head -1
+}
+
+# Does that distribution actually carry the compiler?
+#
+# A distribution existing is not a toolchain, and `doctor` reporting readiness on the strength
+# of one is the plausible wrong answer conventions section 3 refuses - a freshly installed
+# Ubuntu has no clang, and that is the state a machine is in for the whole gap between
+# `oops setup` registering it and the toolchain landing in it.
+#
+# Bounded, because a distribution part-way through its first run blocks every call to it: an
+# unanswered `wsl --install` username prompt wedges the lot, and a `doctor` that hangs is
+# worse than one that is wrong.
+wsl_has_clang() {
+    local t=""
+    command -v timeout >/dev/null 2>&1 && t="timeout 20"
+    $t env MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe -d "$1" -- \
+        bash -lc 'command -v clang' >/dev/null 2>&1
+}
+
 run_via_wsl() {
     local dir="$1"; shift
     [ -n "${OOPS_NO_WSL:-}" ] && die "this needs clang and lld; the shell has neither and OOPS_NO_WSL is set"
@@ -141,9 +177,20 @@ run_via_wsl() {
     # shadows it. That cargo is old enough to refuse a version-4 lock file, and it
     # says so as a lock-file parse error rather than as a version problem. This is
     # rustup's own file, not a guess at what it does.
-    # `WSL_DISTRO` names the distribution - the variable obscene's own scripts read. Unset
-    # means WSL's default, which is what `oops setup` leaves Ubuntu as.
-    MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe ${WSL_DISTRO:+-d "$WSL_DISTRO"} --cd "$wpath" -- \
+    # `WSL_DISTRO` names the distribution - the variable obscene's own scripts read. Unset,
+    # this picks the first one a person could build in, and pointedly NOT WSL's default.
+    #
+    # The default is a trap here. Docker Desktop registers `docker-desktop` on the WSL2
+    # backend and becomes the default on a machine that had no other distribution, which is
+    # exactly the machine this was written on: `wsl --list` showed `* docker-desktop` beside
+    # a perfectly good Ubuntu. Passing no `-d` would have sent every C build into Docker's
+    # Alpine appliance, to fail on a missing compiler with nothing saying which Linux it was
+    # talking about.
+    local distro
+    distro="$(wsl_target)"
+    [ -n "$distro" ] || die "no WSL distribution to build in. ./bin/oops setup installs one"
+    note "in: $distro"
+    MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe -d "$distro" --cd "$wpath" -- \
         bash -lc 'if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi; '"$*"
 }
 
@@ -465,7 +512,14 @@ doctor() {
             printf '  %s--%s   no clang and no WSL - the C repositories cannot be built here\n' "$RED" "$OFF"
             c_gap=1
         elif [ -n "$(wsl_distros)" ]; then
-            note "  no clang in this shell; the C repositories will be built through WSL"
+            local d
+            d="$(wsl_target)"
+            if wsl_has_clang "$d"; then
+                note "  no clang in this shell; the C repositories will be built through WSL ($d)"
+            else
+                printf '  %s--%s   WSL has %s and it carries no clang - nothing builds in it yet\n' "$RED" "$OFF" "$d"
+                c_gap=1
+            fi
         else
             printf '  %s--%s   no clang, and WSL has no distribution - the C repositories cannot be built here\n' "$RED" "$OFF"
             c_gap=1

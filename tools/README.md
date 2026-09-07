@@ -183,9 +183,18 @@ gate, `zip` and `unzip` for the package and release jobs, `python3`, which
 `obscene/scripts/build-pkg.sh` shells out to for one file and Ubuntu ships regardless, and
 `curl` with `ca-certificates`, because rustup's installer arrives over https and would
 otherwise fail inside this script rather than before it. Everything is install-if-missing, so
-it runs again after a partial failure without starting over. `bin/oops` reaches WSL's default
-distribution; set `WSL_DISTRO` for one with another name, which is the variable obSCEne's
-scripts read too.
+it runs again after a partial failure without starting over. Both this and `bin/oops` build in
+the first distribution below, and deliberately **not** in WSL's default one; set `WSL_DISTRO`
+to name another, which is the variable obSCEne's scripts read too.
+
+It registers the distribution with `--no-launch` and stops, because the account inside it is
+yours to make. Left to launch itself, `wsl --install` ends by asking for a username and a
+password, and a shell that is not a terminal never answers: the install sits there, every
+later call to that distribution queues behind it, and killing the caller leaves an orphaned
+client still holding it. The symptom is that the whole of WSL stops responding, which names
+nothing. So the first run is a person's to do, `wsl -d Ubuntu` once, and this says so and
+exits rather than installing rustup into root's home where the account that builds cannot
+see it.
 
 **A container runtime's own WSL distribution does not count as one**, here or in `doctor`.
 Docker Desktop registers `docker-desktop` on the WSL2 backend, and Rancher and podman do the

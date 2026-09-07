@@ -338,9 +338,26 @@ outer() {
         # Only for installs made after it, so it is set here rather than reported: an existing
         # version-1 distribution is somebody's decision and not this script's to change.
         run env MSYS_NO_PATHCONV=1 wsl.exe --set-default-version 2 >/dev/null 2>&1 || true
-        note "  this asks for a username and a password of its own, in this terminal"
-        run env MSYS_NO_PATHCONV=1 wsl.exe --install -d "$DISTRO_DEFAULT" ||
-            { bad "installing $DISTRO_DEFAULT failed"; return 1; }
+        # `--no-launch`, and this was learned the hard way. Without it `wsl --install` ends by
+        # starting the distribution so it can ask for a username and a password, and a shell
+        # that is not a terminal never answers: the install sits there, every later `wsl -d
+        # Ubuntu` blocks behind it, and killing the caller leaves an orphaned client still
+        # holding the distribution. That is a wedge nobody would diagnose from the symptom,
+        # which was "the whole of WSL stopped responding".
+        #
+        # Registered and not launched, the account is the person's to create on their own
+        # first run, which is the check immediately below.
+        note "  registering it without launching it; the first run is yours to do"
+        run env MSYS_NO_PATHCONV=1 wsl.exe --install -d "$DISTRO_DEFAULT" --no-launch || {
+            bad "installing $DISTRO_DEFAULT failed"
+            printf '\n'
+            printf 'If that reported an unrecognised option, this Windows has a WSL too old for\n'
+            printf '--no-launch. Install it yourself, from a real terminal so it can ask for the\n'
+            printf 'username and password it wants:\n\n'
+            printf '    wsl --install -d %s\n\n' "$DISTRO_DEFAULT"
+            printf 'then run this again.\n'
+            return 1
+        }
         if [ "$DRY" -eq 1 ]; then
             note "  (dry run: the toolchain would then be installed inside it)"
             return 0
