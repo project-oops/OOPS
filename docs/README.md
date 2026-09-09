@@ -19,7 +19,7 @@ sections. Read 1, 2 and 3 before changing anything:
 | | |
 |---|---|
 | §1 | **Provenance is a hard boundary** - no firmware, keys, decrypted titles or disassembly. What may be read from someone else's source, and what may not. |
-| §2 | **Naming** - no vendor brands in prose or in our own API, plus the vocabulary for our own layers: guest, host, loader, target, implementation. |
+| §2 | **Naming** - no vendor brands in prose or in our own API; the vocabulary for our own layers (guest, host, loader, target, implementation); and **the four axes of a build and a run** - target, format, category, context - which is what a CLI, a release artifact and a conformance matrix all have to agree on. |
 | §3 | **Honest failure over plausible output** - a stub that returns success is indistinguishable from working code until forty thousand frames later. |
 | §4 | Decision logs, and what to do when two sessions write the same one |
 | §5 | Do not write down anything that goes stale |

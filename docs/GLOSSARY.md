@@ -98,7 +98,9 @@ because that is where the tables that establish them live:
 | **NID** | A hash standing in for a symbol name. The vendor's modules do not carry readable names, so a lookup is a hash lookup | SELFish `selfish-nid` |
 | **fSELF** | A "fake" signed executable container - the shape a non-retail build takes | SELFish `selfish-container` |
 | **PFS** | The filesystem inside a package | SELFish `selfish-pfs` |
-| **keystone**, **playgo**, **param.sfo** | Pieces a package carries besides the program itself | SELFish `selfish-pkg` |
+| **keystone**, **playgo**, **param.sfo**, **param.json** | Pieces a package or title directory carries besides the program itself | SELFish `selfish-pkg`, `selfish-title` |
+| **`applicationCategoryType`** | An integer in `param.json` (`CATEGORY` in `param.sfo`) governing hardware budget (DMEM) and HDMI scanout ownership (`0` = Big App, `65536` = System App, `131072` = Mini App) | SELFish `selfish-title`, obSCEne D301 |
+| **`paid`** (Program Authority ID) | A 64-bit value in the SELF header governing process privilege tier (`app`, `system`, `root`). Orthogonal to application category | SELFish `selfish-container`, obSCEne D301 |
 
 Follow those to [SELFish's glossary](https://github.com/project-oops/SELFish/blob/main/docs/GLOSSARY.md);
 this page does not restate them.
@@ -118,6 +120,19 @@ the part most likely to mislead, because nothing looks wrong.
 | **probe** | obSCEne itself, and `obscene-probe.*` the artifacts | | in SELFish, a diagnostic program under `examples/` that prints and ships nothing |
 | **section** | a group of related checks in the report, ordered base to high level | | in ELF, a named region of the file. Both senses are live in obSCEne |
 | **payload** | a plain ELF a homebrew loader maps and runs | | Prosperous sends payloads; Porthole is one that is not finished |
+| **target** | the machine an artifact is **built for**: `orbis`, `neo`, `prospero`, `trinity` (oops-sdk's `target.h`) | same, when naming an artifact | Prosperous: a **machine it has registered**, by name and address. Download manifests: **where a fetched artifact is installed**. oops-libs docs: the far **side** of the host/target boundary |
+
+**`target` is the worst of these and the newest**, carrying four live senses at once. Write
+**build target**, **registered target** or **install target** wherever two could be read; the
+host/target *side* sense is fixed by pairing it with "host-side", which is what oops-libs does.
+[CONVENTIONS section 2](CONVENTIONS.md#the-four-axes-of-a-build-and-a-run) has the full table and
+the reasoning.
+
+**The axis `target` belongs to has three siblings**, and they are worth knowing together because
+a build names all four: **target** (built for), **format** (`elf`, `eboot`, `title`, `pkg`),
+**category** (`applicationCategoryType`, defined in part two above), and **context** (the
+environment a run *turned out* to be in, which is measured rather than chosen and is obSCEne's
+`OBS|context`). An artifact can carry the first three in its name. It can never carry the fourth.
 
 **census** and **sweep** are obSCEne's alone: a census is the list of platform symbols it knows
 about, and a sweep is a repeated run that narrows something down.

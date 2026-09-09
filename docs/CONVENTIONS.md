@@ -148,6 +148,79 @@ spoken for one level up.
 **"The hardware" is not a loader-neutral term either.** It means the real thing
 specifically. A sentence that has to cover both says "loader", or names them both.
 
+### The four axes of a build and a run
+
+Four things vary independently, and the collection kept collapsing them into one word. They are
+named here once so that seven repositories, a CLI, a set of release artifacts and a conformance
+matrix all use the same four.
+
+| Axis | Values | Whose fact it is | Where it lives |
+|---|---|---|---|
+| **target** | `orbis`, `neo`, `prospero`, `trinity` | the machine an artifact is built **for** | `oops-sdk/include/oops/target.h`, and `selfish --target` |
+| **format** | `elf`, `eboot`, `title`, `pkg` | the shape the artifact is delivered **as** | `selfish --format` |
+| **category** | `BIG_APP`, `SYSTEM_APP`, `MINI_APP`, `DAEMON`, `MEDIA_APP` | what a title **declares itself to be** | the title manifest, so `selfish --category` for `title` and `pkg` |
+| **context** | `<delivery>/<generation>`, e.g. `payload/ps4-bc`, `native/ps5-native` | the environment a run **turned out to be in** | measured at run time, obSCEne's `OBS\|context` (obscene#D275) |
+
+**`target` is now overloaded three ways, and this is the collision to watch.** It already meant
+*one machine Prosperous has registered, by name and address* - the sense in the table above, and
+the one `pros register ps5 <address>` writes. It now also means *the machine an artifact is built
+for*, as `selfish --target prospero`. And the download manifests use `target=` for a third thing,
+*where a fetched artifact is installed*, with values like `titles`, `payloads`, `packages`. Three
+senses, none of them wrong on its own.
+
+Qualify it wherever two could be read. **build target** for the hardware axis, **registered
+target** for a machine Prosperous knows, **install target** for a manifest destination. Bare
+`target` is only safe when a sentence has already fixed which one. This is the same failure the
+layer table below was written after, arriving before anybody has shipped the confusion, so it is
+cheap to hold now and expensive later.
+
+**target names the hardware, and `orbis` is the previous generation.** `neo` and `trinity` are
+the mid-generation refreshes of `orbis` and `prospero`, not synonyms for them: an artifact that
+runs on any previous-generation machine is `orbis`, and `neo` is only correct when the build is
+genuinely Pro-specific. Release artifacts are named for the target, so this decides public URLs.
+
+**context is measured, never chosen.** This is the distinction that cost the most to learn, and
+obscene#D276 is the evidence: the *same physical current-generation machine* answers differently
+depending on the environment a run lands in. Under `payload/ps4-bc` the current generation's
+graphics driver does not resolve, module introspection is refused three independent ways, and
+the debug link map is absent. None of that is a fact about the hardware; all of it is a fact
+about the compatibility sandbox. A result labelled only by its artifact records the first when
+it measured the second, which is the oracle problem in miniature.
+
+So **an artifact carries no context.** A previous-generation package is one file, and it is the
+same file whichever machine installs it; `selfish` therefore has no `--mode` and wants none.
+What varies is where it then ran, and that is the runtime label.
+
+**category is the build-side lever that influences the context.** The loader refuses a
+previous-generation-category title the current generation's libraries, so what a title declares
+itself to be helps decide the environment it gets. Choosing a category is a build decision;
+finding out which context resulted is a measurement.
+
+**The target axis is oops-sdk's, and it has confirmed this reading.** `include/oops/target.h`
+holds the four values and the `IS_PS4`/`IS_PS5` helpers, and its header now states that
+`OOPS_TARGET` is what a binary was *compiled for* and not the environment it runs in. Quote that
+header rather than restating the list. The type is `oops_target_t`, the accessor
+`oops_get_target()`, and the enumerators `OOPS_ORBIS`, `OOPS_NEO`, `OOPS_PROSPERO`, `OOPS_TRINITY`
+- deliberately without the `TARGET_` infix, because the build-time selector macros
+`OOPS_TARGET_ORBIS` and friends already own those identifiers. The older `oops_target_mode_t`
+spelling, which said "mode" for what this section calls a target, survives only as a deprecated
+alias so consumers keep compiling mid-adoption; the header names the condition for deleting it.
+Write the new names.
+
+**Not every "generation" is the console's.** A sweep for this vocabulary will also match GPU
+architecture generations and the provenance-cited tables under `data/`, where a term is quoted
+from its source and section 1 forbids editing it to taste. This is a judgement pass, not a
+substitution: change a word because it is the console generation and one of the four names is
+exact, and leave the rest, including anything a decision log or worklog recorded as true when
+written.
+
+**A fifth and a sixth sense of `target` turned up during adoption, and both are settled.**
+oops-libs used it privately for a markdown link's destination and renamed that to `dest`. It also
+uses host and target for the *side* of the host/target boundary, which is not a machine identity
+at all and is already defined by the **host** row in the layer table above; every occurrence there
+is paired with "host-side", so context fixes it and nothing needed changing. Neither is a
+collision to relitigate.
+
 ## 3. Honest failure over plausible output
 
 A stub that returns success is indistinguishable from working code until forty thousand
