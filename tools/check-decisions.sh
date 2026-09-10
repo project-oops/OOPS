@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Check every project's decision log against OOPS conventions section 4.
 #
-#   tools/check-decisions.sh                 # all five
+#   tools/check-decisions.sh                 # every member
 #   tools/check-decisions.sh selfish         # one
 #   tools/check-decisions.sh --show-known    # enumerate the baseline too
 #   tools/check-decisions.sh --update-baseline

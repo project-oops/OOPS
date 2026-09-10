@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# oops - one entry point for the four projects.
+# oops - one entry point for the collection: four projects and three shared repositories.
 #
 # Every project carries its own `bin/<project>` with the same verbs, and this relays to it.
 # So `oops test selfish` and `selfish/bin/selfish test` are one command reached two ways,
@@ -24,21 +24,21 @@
 #   oops gates                    the meta-level checks: decision logs, markdown
 #                                 links, the child repositories' workflow preambles,
 #                                 and the house dash style
-#   oops all                      gates + check across the four. The whole thing.
-#   oops bootstrap [project...]   fetch the four, or only the ones named. What CI
+#   oops all                      gates + check across the collection. The whole thing.
+#   oops bootstrap [project...]   fetch the members, or only the ones named. What CI
 #                                 uses: clone the meta without submodules, then
 #                                 ask for what that job actually builds.
-#   oops git <args...>            run git across the meta and the four. Any verb -
+#   oops git <args...>            run git across the meta and every member. Any verb -
 #                                 `oops git status -s`, `oops git remote -v`.
-#   oops status                   branch and working-tree state, meta + four
-#   oops doctor                   is this machine able to build all four
+#   oops status                   branch and working-tree state, meta + members
+#   oops doctor                   is this machine able to build the collection
 #   oops setup                    make it able to: WSL, the Ubuntu distribution, and
 #                                 the toolchain inside it. tools/setup-wsl.sh
 #   oops exec "<cmd>" [proj...]   run an arbitrary command in each project
-#   oops list                     the four, where they are, whether present
+#   oops list                     the members, where they are, whether present
 #
 # Projects are named in full or by prefix, so `oops build orb` is `oops build
-# orbistoun`. Omit the project to mean all four.
+# orbistoun`. Omit the project to mean every member.
 #
 # A failing project does not stop the others. Failures are collected and reported
 # at the end and the exit code is non-zero if anything failed, so one run tells
@@ -301,7 +301,7 @@ verb_over_projects() {
     report
 }
 
-# Proxy any git verb across the meta and the four, rather than hardcoding a list
+# Proxy any git verb across the meta and every member, rather than hardcoding a list
 # of the ones somebody thought of. `oops git status -s`, `oops git log --oneline
 # -1`, `oops git remote -v` all work without this script knowing what they mean.
 #
@@ -326,22 +326,27 @@ git_proxy() {
 # these are the `path = "../..."` entries in the Cargo.toml files, and a build
 # without them fails as a missing directory rather than as a missing dependency.
 #
-# **All four take oops-libs.** That was not true when this table was written -
-# prosperous was the only consumer, and selfish and orbistoun were listed as
-# needing nothing. Both grew a `path = "../oops-libs/..."` afterwards and this
-# table did not follow, so `oops bootstrap selfish` fetched nothing and the build
-# then failed on a directory rather than on a dependency: exactly the error this
-# table exists to prevent. A table that has to be updated by hand when a manifest
-# changes will eventually be wrong; it is written down here anyway because the
-# alternative is parsing four manifests before any of them are checked out.
+# **Every project takes oops-libs, and by now most take SELFish too.** That was not
+# true when this table was written - prosperous was the only consumer, and selfish
+# and orbistoun were listed as needing nothing. The manifests kept moving and this
+# table kept lagging: first all four grew `../oops-libs`, then prosperous grew a
+# real `../selfish/crates/selfish-title` for its param.sfo reader and orbistoun grew
+# `../selfish/...` dev-dependencies for the D653 differential - and each time
+# `oops bootstrap <that project>` fetched too little and the build failed on a
+# missing directory rather than a missing dependency, which is the exact error this
+# table exists to prevent. A table updated by hand when a manifest changes will keep
+# doing this; it is written down anyway because the alternative is parsing every
+# manifest before any of them are checked out.
 #
-# oops-libs itself depends on nothing, which is what makes it safe to be the
-# common leaf.
+# orbistoun's SELFish edge is dev-only, so `oops build orbistoun` does not need it -
+# but `oops check` runs `cargo test` and `clippy --all-targets`, which do, so
+# bootstrap fetches it. oops-libs depends on nothing, which is what makes it the
+# safe common leaf.
 deps_for() {
     case "$1" in
         obscene)    echo "selfish prosperous oops-libs oops-sdk" ;;
-        orbistoun)  echo "oops-libs" ;;
-        prosperous) echo "oops-libs" ;;
+        orbistoun)  echo "oops-libs selfish" ;;
+        prosperous) echo "oops-libs selfish" ;;
         selfish)    echo "oops-libs" ;;
         oops-apps)  echo "oops-sdk selfish" ;;
         *)          echo "" ;;
@@ -463,32 +468,29 @@ bootstrap() {
 }
 
 gates() {
-    # All four are shell, like the entry points they sit beside. The collection is Rust, C and
-    # bash - 411 Rust files, 103 C, 50 shell, and no Python in any of the five projects, which
-    # obSCEne's CLAUDE.md states outright. Four files in tools/ were a worse guide to the house
-    # language than the five hundred beside them, and for a while they were the guide followed.
+    # These checkers are shell, like the entry points they sit beside. The collection is Rust, C
+    # and bash, with no Python anywhere, which obSCEne's CLAUDE.md states outright - see
+    # tools/README.md for why a handful of Python checkers here were rewritten out. Adding Python
+    # to check the others would be a language nobody asked for.
     step "meta: decision logs"
     bash "$ROOT/tools/check-decisions.sh" || FAILED="$FAILED meta:decisions"
     step "meta: markdown links"
     bash "$ROOT/tools/check-links.sh" || FAILED="$FAILED meta:links"
     # The third thing that can only be answered from here: a child repository's workflow
     # checks *itself* out, and whether the collection is around it when it does is not
-    # visible from inside that repository. Five of them were flat checkouts that could not
-    # have built, and nothing said so - these workflows have never run.
-    # These two are shell, like the entry points they sit beside. The collection is Rust, C
-    # and bash; there is no Python in any of the five projects, and adding some here to check
-    # them would be a fifth language nobody asked for.
+    # visible from inside that repository. Several were flat checkouts that could not
+    # have built, and nothing said so - these workflows had not run when the gate was written.
     step "meta: workflow preambles"
     bash "$ROOT/tools/check-workflows.sh" || FAILED="$FAILED meta:workflows"
     # House prose style, which is only enforceable from here: the convention is one
-    # collection-wide rule, and a per-project copy of it would be five things to drift.
+    # collection-wide rule, and a per-project copy would be one more thing per repository to drift.
     step "meta: dashes"
     bash "$ROOT/tools/check-dashes.sh" || FAILED="$FAILED meta:dashes"
 }
 
 status_all() {
     local d name branch dirty state
-    # The meta and the four, not every git directory under the root - anything
+    # The meta and every member, not every git directory under the root - anything
     # else here is somebody's in-progress work and not this script's business.
     for name in "(meta)" $PROJECTS; do
         if [ "$name" = "(meta)" ]; then d="$ROOT"; else d="$ROOT/$name"; fi

@@ -3,7 +3,7 @@
 #
 #   tools/build-docs.sh <project-dir> <out-dir> <accent> <title>
 #
-# One implementation, four consumers. Each project's `pages.yml` checks this
+# One implementation, one consumer per member plus the meta. Each pages.yml checks this
 # repository out and calls this, the same way obSCEne's CI already checks it out
 # for the shared gates - so the docs of all four look like one set and a change
 # to how they are rendered is made once.

@@ -63,6 +63,7 @@ meta-repo's own, because they are about the collection rather than about one pro
 | `git <args...>` | run any git verb across the meta and every member |
 | `status` | branch and working-tree state |
 | `doctor` | can this machine build the collection |
+| `setup` | make it able to: WSL, the `oops-builder` distribution, the toolchain inside it |
 | `exec "<cmd>" [project...]` | run an arbitrary command in each project |
 | `list` | the members, where they are, whether present |
 
@@ -77,22 +78,23 @@ skips the meta repo.
 ### What a project adds beyond the seven
 
 The shared verbs mean the same thing everywhere. What differs is only what a project has that
-the others do not, reached through the same entry point:
+the others do not, reached through the same entry point. **The authority for each project's own
+verbs is `bin/<project> --help`**, which reads them out of the script rather than being a second
+list to drift - the enumerations that used to sit here fell out of date for three projects at
+once. What is worth stating is the shape rather than the roster:
 
-| project | its own verbs |
-|---|---|
-| **orbistoun** | `run <title>`, `doctor`, `fix`, `cli`, `site`, `sweep`, `names`, `suggest`, `provenance`, `symbols-audit`, `constants`, `tables`, `decide`, `hooks`, `docs` |
-| **obscene** | `pkg`, and any make target by name - `./bin/obscene eboot`, `./bin/obscene module-min` |
-| **prosperous** | `provenance`, `target` |
-| **selfish** | `provenance`, `links` |
-| **oops-libs** | none |
-| **oops-sdk** | any make target by name; `test`/`lint`/`fmt`/`doc` fail loudly until wired |
-| **oops-apps** | `list`, `dist`; `test`/`lint`/`fmt`/`doc` are not carried yet, and are refused rather than passed |
-
-Two of those are deliberately *not* folded into a shared verb. orbistoun's `fix` applies clippy
-suggestions as well as formatting, which is a mutating operation that should be asked for by
-name rather than hidden inside `fmt`; and its `docs` opens a browser, where `doc` does not,
-because a build step that launches a browser cannot go in a pipeline.
+- **orbistoun** adds the most - the emulator's own operations (`run`, `sweep`, `names`, `decide`
+  and more). Two are deliberately not folded into a shared verb: `fix` applies clippy suggestions
+  as well as formatting, a mutating step that should be asked for by name rather than hidden
+  inside `fmt`; and `docs` opens a browser, where `doc` does not, because a build step that
+  launches a browser cannot go in a pipeline.
+- **obscene** adds `pkg` and passes any make target through by name (`./bin/obscene eboot`), plus
+  a dozen script-backed verbs its own `--help` lists.
+- **prosperous** adds `provenance` and `target`; **selfish** adds `provenance` and `links`.
+- **oops-sdk** wraps `make`: `build`/`check`/`clean`/`test` are real, and `lint`/`fmt`/`doc`
+  refuse loudly with what would have to be built first rather than passing without checking.
+- **oops-apps** adds `list` and `dist`; its other shared verbs are refused rather than faked.
+- **oops-libs** adds nothing beyond the shared verbs.
 
 `./bin/obscene test` is the tooling's own tests. It used to be `make check` - the same command
 as `check` - which made the two words indistinguishable and said nothing true about either.
@@ -112,8 +114,8 @@ and a build without them fails as a missing directory rather than as a missing d
 oops-libs    ← nothing
 oops-sdk     ← nothing            (freestanding C, its own bottom)
 selfish      ← oops-libs
-orbistoun    ← oops-libs
-prosperous   ← oops-libs
+orbistoun    ← oops-libs, and selfish (dev-only, for the D653 differential test)
+prosperous   ← oops-libs, and selfish (selfish-title, the param.sfo reader)
 obscene      ← selfish, prosperous, oops-libs, and oops-sdk (a C/make edge, not a Cargo one)
 oops-apps    ← oops-sdk            (every app's Makefile includes ../../oops-sdk/oops-sdk.mk)
 ```
@@ -251,8 +253,8 @@ organisation secret of that name.
 
 ### Three traps, all of which were live
 
-None of these workflows has ever executed - there are no remotes yet - so every one of
-these was found by reading rather than by a red pipeline.
+None of these workflows had ever executed when the gate was written - there were no remotes yet -
+so every one of these was found by reading rather than by a red pipeline.
 
 - **A flat checkout.** `actions/checkout@v4` with no `path:` and no collection around it.
   It fails as a missing *directory* rather than as a missing dependency, which reads like

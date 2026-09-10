@@ -65,10 +65,8 @@ relative path - `obscene/tool/Cargo.toml` resolves `../../selfish/crates/selfish
 `../../prosperous/crates/pros-link` - so a renamed or re-nested checkout does not build.
 Cloning with `--recurse-submodules` makes it right by construction; cloning obSCEne on its
 own leaves those paths pointing at nothing, which is a missing sibling rather than a broken
-dependency.
-
-Directory names are lower-case because those build paths depend on it - see
-[docs/PUBLISHING.md](docs/PUBLISHING.md).
+dependency. The directory names are lower-case because those build paths depend on it, which
+[The names](#the-names) and [docs/PUBLISHING.md](docs/PUBLISHING.md) explain.
 
 ## Quickstart
 
@@ -227,12 +225,12 @@ The diagram above is the intent. This is the state:
 |---|---|
 | obSCEne → SELFish | **real** - path dependencies on the format crates |
 | obSCEne → Prosperous | **real** - a path dependency on the link layer |
-| Orbistoun → SELFish | **none** - Orbistoun carries its own `orbistoun-abi`, `-elf`, `-nid` |
-| Prosperous → SELFish | **none** |
+| Orbistoun → SELFish | **real, dev only** - a second reader over one corpus for the differential test (orbistoun#D653); `cargo build` does not need SELFish, `cargo test` and `clippy --all-targets` do |
+| Prosperous → SELFish | **real** - a path dependency on `selfish-title` for the param.sfo reader (prosperous#D028) |
 | Orbistoun ↔ obSCEne | by artefact and document: Orbistoun runs the probe and reads its report |
 | Prosperous ↔ obSCEne | by artefact: Prosperous delivers the payload to hardware |
 
-So the shared foundation is shared by one of three. Whether the overlap between
+Every consumer now reaches SELFish, two of them since this table first said otherwise. Whether the overlap between
 `selfish-elf` and `orbistoun-elf` should be resolved is an **open question with arguments on
 both sides**, not an oversight - see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -241,8 +239,8 @@ both sides**, not an oversight - see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md
 **Published, and wired as submodules.** All seven repositories - the four projects, the two
 libraries and oops-apps - are submodules of this one, each pinned to a revision. Six have a
 commit, a remote and a public `main` under
-[github.com/project-oops](https://github.com/project-oops); oops-apps has its first commit and
-its remote, and its first push is the step still outstanding. A clone of this repository with
+[github.com/project-oops](https://github.com/project-oops), oops-apps included and pushed, so a
+`--recurse-submodules` clone now brings all seven down. A clone of this repository with
 `--recurse-submodules`, or a plain clone followed by `oops bootstrap`, brings the collection
 down at the layout the builds expect. [docs/PUBLISHING.md](docs/PUBLISHING.md) has what was
 done and what is still outstanding.

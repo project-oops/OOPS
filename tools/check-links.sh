@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Resolve every relative markdown link and anchor across all five repositories.
+# Resolve every relative markdown link and anchor across every member repository.
 #
-#   tools/check-links.sh            # all five, plus OOPS itself
+#   tools/check-links.sh            # every member, plus OOPS itself
 #   tools/check-links.sh selfish
 #
 # A cross-repository link is the one kind this cannot be checked from inside a project: from

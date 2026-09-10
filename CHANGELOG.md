@@ -6,9 +6,9 @@ the commit is the version.
 
 Entries are grouped **Added / Changed / Fixed**, newest first.
 
-Nothing has shipped yet - this is the initial commit.
+Nothing has shipped: there is no artifact to ship. The commit is the version.
 
-## [unreleased] - as of 2026-09-01
+## [unreleased]
 
 ### Added
 

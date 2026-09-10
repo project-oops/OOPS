@@ -47,7 +47,7 @@ The alternative is a git dependency on the whole of SELFish, which would make ob
 clone-and-build on its own at the cost of pinning a revision in two places. Neither is
 obviously right; the path dependency is what exists.
 
-**What is not an alternative**, and this is a harder constraint than it looks: six of
+**What is not an alternative**, and this is a harder constraint than it looks: several of
 SELFish's crates read data files from *outside their own package root* -
 
 ```rust

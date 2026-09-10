@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # No em-dash or en-dash in prose. See CONVENTIONS section 8, "Dashes are hyphens".
 #
-#   tools/check-dashes.sh            # all five repositories, plus OOPS itself
+#   tools/check-dashes.sh            # every member, plus OOPS itself
 #   tools/check-dashes.sh selfish
 #
 # # Why this is a gate and not a habit

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Every workflow that touches a project's source uses the standard OOPS preamble.
 #
-#   tools/check-workflows.sh            # all five
+#   tools/check-workflows.sh            # every member
 #   tools/check-workflows.sh selfish
 #
 # # Why this exists
@@ -9,7 +9,7 @@
 # Every project resolves `oops-libs` by relative path, as a sibling, so a workflow that checks
 # itself out flat cannot build - it fails as a missing *directory* rather than as a missing
 # dependency. Five workflows across four repositories were in exactly that state and none of
-# them reported it, because not one of these workflows has ever executed: there are no remotes
+# them reported it, because not one of these workflows had ever executed: there were no remotes
 # yet. A gate nobody runs is documentation that claims to be a gate, and the answer to that is
 # a gate that runs somewhere else.
 #

@@ -92,7 +92,7 @@ A workflow checks *itself* out, and whether the collection is around it when it 
 identical from inside either way - right up until the build fails as a missing directory.
 
 **It found six defects the first time it ran**, in four repositories, and none of them would
-ever have been reported: not one of these workflows has executed, because there are no remotes
+ever have been reported: not one of these workflows had executed, because there were no remotes
 yet. A flat checkout in orbistoun's `ci.yml`, `pages.yml` and release build, and in three of
 obSCEne's jobs; a `defaults.run.working-directory` that made `OOPS/bin/oops` resolve to
 `OOPS/<project>/OOPS/bin/oops`; and, in SELFish, no bootstrap step at all - on the strength of

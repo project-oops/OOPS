@@ -35,9 +35,9 @@ renaming one breaks links in code comments, `.gitattributes` files and CI workfl
 and what does not, the one duplication that is a question rather than a bug, the open
 licence question, and how to cite a decision in another project.
 
-**[BUILDING.md](BUILDING.md)** - one vocabulary over four projects that do not share one.
-Every verb `bin/oops` takes, what each maps to per project, what depends on what, and why
-obSCEne needs WSL when the other three build anywhere.
+**[BUILDING.md](BUILDING.md)** - one vocabulary over members that do not share one build.
+Every verb `bin/oops` takes, what each maps to per project, what depends on what, and why the C
+repositories (obSCEne, oops-sdk, oops-apps) need WSL while the rest builds anywhere.
 
 **[PUBLISHING.md](PUBLISHING.md)** - the repositories, the submodule wiring, and the order
 to do it in.

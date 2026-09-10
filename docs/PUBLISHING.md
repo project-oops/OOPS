@@ -1,8 +1,9 @@
 # Publishing the four, and wiring up the submodules
 
-**Done, on 2026-09-01.** All six repositories then had an initial commit, a remote and a public
-`main`, and all six were submodules of this one. A seventh, oops-apps, was registered on
-2026-09-07 and is not yet pushed. What follows is what was done and why, plus the steps still
+**Done.** Every repository has an initial commit, a remote and a public `main`, and every one is
+a submodule of this one. The first six were published on 2026-09-01; oops-apps was registered on
+2026-09-07 and pushed shortly after, so a fresh `--recurse-submodules` clone now completes. What
+follows is what was done and why, plus the steps still
 outstanding.
 
 ## Where things are
@@ -57,9 +58,9 @@ URLs, so they were correct the moment the remotes existed.
 **Build obSCEne once from a fresh clone.** That is the only way to find out the submodule layout
 is wrong, and it has not been done.
 
-**Push oops-apps.** It has its first commit, its remote, and an entry in `.gitmodules`; the
-repository exists under the organisation and is empty. Until its `main` is pushed, a fresh
-`--recurse-submodules` clone gets six of the seven and stops on the seventh.
+**Done: oops-apps is pushed.** It had its first commit, its remote and an entry in `.gitmodules`,
+and its `main` is now on the remote, so a fresh `--recurse-submodules` clone gets all seven rather
+than stopping on the seventh.
 
 ## What a reader gets either way
 

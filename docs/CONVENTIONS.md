@@ -161,18 +161,21 @@ matrix all use the same four.
 | **category** | `BIG_APP`, `SYSTEM_APP`, `MINI_APP`, `DAEMON`, `MEDIA_APP` | what a title **declares itself to be** | the title manifest, so `selfish --category` for `title` and `pkg` |
 | **context** | `<delivery>/<generation>`, e.g. `payload/ps4-bc`, `native/ps5-native` | the environment a run **turned out to be in** | measured at run time, obSCEne's `OBS\|context` (obscene#D275) |
 
-**`target` is now overloaded three ways, and this is the collision to watch.** It already meant
-*one machine Prosperous has registered, by name and address* - the sense in the table above, and
-the one `pros register ps5 <address>` writes. It now also means *the machine an artifact is built
-for*, as `selfish --target prospero`. And the download manifests use `target=` for a third thing,
-*where a fetched artifact is installed*, with values like `titles`, `payloads`, `packages`. Three
-senses, none of them wrong on its own.
+**`target` is the collection's worst word collision, and this is where it is named.** It carries
+several live senses: *a machine Prosperous has registered, by name and address* (the sense in the
+table above, what `pros register ps5 <address>` writes); *the machine an artifact is built for*
+(`selfish --target prospero`); *where a fetched artifact is installed* (the download manifests'
+`target=`, with values like `titles`, `payloads`, `packages`); and, separately, the far *side* of
+the host/target boundary. None is wrong on its own. The full enumeration lives in
+[the glossary's word-collision table](GLOSSARY.md#part-three-one-word-two-meanings) rather than
+being counted here, because a count is the thing section 5 rules out.
 
 Qualify it wherever two could be read. **build target** for the hardware axis, **registered
-target** for a machine Prosperous knows, **install target** for a manifest destination. Bare
-`target` is only safe when a sentence has already fixed which one. This is the same failure the
-layer table below was written after, arriving before anybody has shipped the confusion, so it is
-cheap to hold now and expensive later.
+target** for a machine Prosperous knows, **install target** for a manifest destination; the
+host/target *side* sense is fixed by pairing it with "host-side", which is what oops-libs does.
+Bare `target` is only safe when a sentence has already fixed which one. This is the same failure
+the layer table below was written after, arriving before anybody has shipped the confusion, so it
+is cheap to hold now and expensive later.
 
 **target names the hardware, and `orbis` is the previous generation.** `neo` and `trinity` are
 the mid-generation refreshes of `orbis` and `prospero`, not synonyms for them: an artifact that
@@ -197,15 +200,15 @@ itself to be helps decide the environment it gets. Choosing a category is a buil
 finding out which context resulted is a measurement.
 
 **The target axis is oops-sdk's, and it has confirmed this reading.** `include/oops/target.h`
-holds the four values and the `IS_PS4`/`IS_PS5` helpers, and its header now states that
-`OOPS_TARGET` is what a binary was *compiled for* and not the environment it runs in. Quote that
-header rather than restating the list. The type is `oops_target_t`, the accessor
+holds the four values and the `OOPS_TARGET_IS_PS4`/`OOPS_TARGET_IS_PS5` helpers, and its header
+states that `OOPS_TARGET` is what a binary was *compiled for* and not the environment it runs in.
+Quote that header rather than restating the list. The type is `oops_target_t`, the accessor
 `oops_get_target()`, and the enumerators `OOPS_ORBIS`, `OOPS_NEO`, `OOPS_PROSPERO`, `OOPS_TRINITY`
 - deliberately without the `TARGET_` infix, because the build-time selector macros
-`OOPS_TARGET_ORBIS` and friends already own those identifiers. The older `oops_target_mode_t`
-spelling, which said "mode" for what this section calls a target, survives only as a deprecated
-alias so consumers keep compiling mid-adoption; the header names the condition for deleting it.
-Write the new names.
+`OOPS_TARGET_ORBIS` and friends already own those identifiers. An older `oops_target_mode_t`
+spelling said "mode" for what this section calls a target; it was carried as a deprecated alias
+for one migration and then deleted, so it is gone rather than a thing to avoid. Write the new
+names.
 
 **Not every "generation" is the console's.** A sweep for this vocabulary will also match GPU
 architecture generations and the provenance-cited tables under `data/`, where a term is quoted
@@ -214,12 +217,11 @@ substitution: change a word because it is the console generation and one of the 
 exact, and leave the rest, including anything a decision log or worklog recorded as true when
 written.
 
-**A fifth and a sixth sense of `target` turned up during adoption, and both are settled.**
-oops-libs used it privately for a markdown link's destination and renamed that to `dest`. It also
-uses host and target for the *side* of the host/target boundary, which is not a machine identity
-at all and is already defined by the **host** row in the layer table above; every occurrence there
-is paired with "host-side", so context fixes it and nothing needed changing. Neither is a
-collision to relitigate.
+**Two more senses turned up during adoption and both are settled, so nobody relitigates them.**
+oops-libs used `target` privately for a markdown link's destination and renamed that to `dest`.
+The host/target *side* sense named above is already defined by the **host** row in the layer
+table; every occurrence is paired with "host-side", so context fixes it and nothing needed
+changing.
 
 ## 3. Honest failure over plausible output
 
@@ -336,7 +338,7 @@ Each project has one command that runs everything CI runs, in CI's order, so "is
 sound" has a single answer. Lints belong in a workspace table rather than only in CI flags,
 so an editor applies them while you type; CI adds `-D warnings` on top.
 
-**Check the branch your CI triggers on.** All four are on `main`. A workflow naming any other
+**Check the branch your CI triggers on.** Every repository is on `main`. A workflow naming any other
 branch never fires on push, and a gate that never fires is indistinguishable from a gate that
 passes - which is how this went unnoticed once already.
 
