@@ -205,6 +205,10 @@ retitle
 rows="$(mktemp)"
 trap 'rm -f "$rows"' EXIT
 
+# The status words the four repositories use, in one place because two readers below share it
+# and a vocabulary that drifted between them would light one row and not the other.
+VOCABULARY='decided|assumed|measured|derived|proposed|scoped|reversed|superseded|withdrawn|blocked|struck|confirmed|done|hardware|published|guest-observed'
+
 for f in $(find "$dir" -name 'D*.md' | sort); do
     base="$(basename "$f")"
     id="${base%%-*}"
@@ -221,15 +225,63 @@ for f in $(find "$dir" -name 'D*.md' | sort); do
     # and a fragment with no date column, which stopped the date search below dead at
     # the first one it met - which is why 65 of SELFish's 87 rows showed no date when a
     # dated entry sat four rows away.
-    status="$(head -6 "$f" \
-              | grep -m1 -ioE '\*{0,2}(status:?[ ]*)?\*{0,2}(decided|assumed|measured|derived|proposed|scoped|reversed|superseded|withdrawn|blocked|struck|confirmed|done|hardware)\*{0,2}\b' \
-              2>/dev/null | sed 's/status:*//I; s/\*//g; s/[ :]//g' | tr 'A-Z' 'a-z' | head -1 || true)"
+    # **A line that DECLARES a status, not a line that contains a vocabulary word.**
+    #
+    # This read the first six lines and took any vocabulary word it found. The window was
+    # narrowed from the whole body to lines 2-6 after titles beat status lines - orbistoun's
+    # "Two walls that *hardware* cannot reach" indexed as `hardware` - and narrowing it was
+    # the wrong shape of fix, which SELFish caught by re-running the result and reading the
+    # diff: with the title excluded, an entry that has **no status line at all** falls through
+    # to whatever word appears first in its opening paragraph. SELFish D067 has no `Status:`
+    # anywhere and indexed as `hardware` off the prose "getting a package to install and launch
+    # **on hardware**".
+    #
+    # Widening or narrowing the window cannot fix that, because the defect is not where it
+    # looks - it is what it matches. So it now anchors on the declaration: an optional `**`,
+    # then `Status`, then a colon. An entry with no such line is `unrecorded`, which is the
+    # honest answer for SELFish's D022, D034 and D067 alike and needs no window.
+    #
+    # Four repositories write the declaration four ways; the pattern takes all four. See the
+    # header note on the shapes.
+    #
+    # `head -1` is not belt-and-braces: `-m1` caps matching *lines*, not matches, and `-o`
+    # prints one per match, so "decided, superseded" put a newline in a tab-separated field
+    # and split one row in two.
+    # Two shapes declare a status, and prose is neither.
+    #
+    # **Labelled**, anywhere in the file: `Status: decided`, in any of the four repositories'
+    # spellings. The emphasis characters come off first, so `**Status:**`, `*status:*` and
+    # `Status:` are one shape by the time the pattern sees it.
+    #
+    # **Banner**, in the header only: a line that *begins* with an emphasised vocabulary word -
+    # orbistoun's early `**decided** · 2026-08-19`, and SELFish's `> **Superseded by D071.**`.
+    # Both are real declarations with no label, and dropping them would put dozens of settled
+    # entries under `unrecorded` and hide a superseded one.
+    #
+    # Emphasis is what separates the banner from prose, and the window is the second guard: a
+    # paragraph opening `**Measured on hardware:**` is a sentence, not a status, and the header
+    # is where a banner actually lives.
+    labelled="$(sed 's/[*_]//g' "$f" \
+                | sed -n -E 's/^[[:space:]]*[Ss]tatus[[:space:]]*:[[:space:]]*([A-Za-z][A-Za-z-]*).*/\1/p' \
+                2>/dev/null | head -1 || true)"
+    # From line 2, because line 1 is the title and a title is prose with a `#` in front of it.
+    # Restricted to the vocabulary, unlike the labelled form: a labelled line has *said* it is a
+    # status and an unfamiliar word there is worth showing, whereas a bold word at the start of a
+    # header line is only a status if it is one of these.
+    banner="$(sed -n '2,6p' "$f" \
+              | sed -n -E "s/^[[:space:]]*(>[[:space:]]*)?[*_]{1,2}($VOCABULARY)\b.*/\2/Ip" \
+              2>/dev/null | head -1 || true)"
+    status="$(printf '%s' "${labelled:-$banner}" | tr 'A-Z' 'a-z')"
     # Same trap as the status line, and it bit here too: "decided - 2026-08-19, revised
     # 2026-08-20" is one line with two matches, so `-o` returned both and the field carried
     # a newline. Two orbistoun decisions vanished from their own index that way.
     date="$(grep -m1 -oE '20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' "$f" 2>/dev/null | head -1 || true)"
     case "$status" in
-        decided|measured|derived|done|hardware|confirmed) light='🟢' ;;
+        # `published` and `guest-observed` are orbistoun's own provenance grades: a fact with a
+        # source that is not this project's own measurement. Green because only `assumed` is the
+        # one its CLAUDE.md flags for review - the others are settled, differing in *whose*
+        # evidence rather than in whether there is any.
+        decided|measured|derived|done|hardware|confirmed|published|guest-observed) light='🟢' ;;
         assumed|proposed|scoped|open)                     light='🟡' ;;
         reversed|superseded|withdrawn|blocked|struck)     light='🔴' ;;
         *)                                                light='⚪'; status="${status:-unrecorded}" ;;
