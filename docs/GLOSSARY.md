@@ -121,6 +121,13 @@ the part most likely to mislead, because nothing looks wrong.
 | **section** | a group of related checks in the report, ordered base to high level | | in ELF, a named region of the file. Both senses are live in obSCEne |
 | **payload** | a plain ELF a homebrew loader maps and runs | | Prosperous sends payloads; Porthole is one that is not finished |
 | **target** | the machine an artifact is **built for**: `orbis`, `neo`, `prospero`, `trinity` (oops-sdk's `target.h`) | same, when naming an artifact | Prosperous: a **machine it has registered**, by name and address. Download manifests: **where a fetched artifact is installed**. oops-libs docs: the far **side** of the host/target boundary |
+| **Orbis** | one of the two build-target values, the **previous hardware generation** (with `neo` its Pro refresh) | the platform's **operating system**, the thing being reimplemented - Orbistoun is named for it | "Orbis software" and "Orbis OS" mean software for that OS **across generations**, not the previous generation specifically. So Prosperous "runs Orbis software" is a Prospero-generation tool running OS software, not a contradiction |
+
+**`Orbis` is a genuine two-sense word, not a mistake to sweep.** As a build target or a hardware
+generation it is the previous machine, paired against `prospero`. As the operating system's own
+name it spans both generations - which is why the mission is "Running Orbis software" and why a
+Prospero-generation tool can still "run Orbis software" without contradiction. Say
+**Orbis-generation** when you mean the hardware; bare **Orbis** is the OS.
 
 **`target` is the worst of these and the newest**, carrying four live senses at once. Write
 **build target**, **registered target** or **install target** wherever two could be read; the
