@@ -159,11 +159,11 @@ matrix all use the same four.
 | **target** | `orbis`, `neo`, `prospero`, `trinity` | the machine an artifact is built **for** | `oops-sdk/include/oops/target.h`, and `selfish --target` |
 | **format** | `elf`, `eboot`, `title`, `pkg` | the shape the artifact is delivered **as** | `selfish --format` |
 | **category** | `BIG_APP`, `SYSTEM_APP`, `MINI_APP`, `DAEMON`, `MEDIA_APP` | what a title **declares itself to be** | the title manifest, so `selfish --category` for `title` and `pkg` |
-| **context** | `<delivery>/<generation>`, e.g. `payload/ps4-bc`, `native/ps5-native` | the environment a run **turned out to be in** | measured at run time, obSCEne's `OBS\|context` (obscene#D275) |
+| **context** | `<delivery>/<generation>`, e.g. `payload/orbis-compat`, `native/prospero-native` | the environment a run **turned out to be in** | measured at run time, obSCEne's `OBS\|context` (obscene#D275) |
 
 **`target` is the collection's worst word collision, and this is where it is named.** It carries
 several live senses: *a machine Prosperous has registered, by name and address* (the sense in the
-table above, what `pros register ps5 <address>` writes); *the machine an artifact is built for*
+table above, what `pros register prospero <address>` writes); *the machine an artifact is built for*
 (`selfish --target prospero`); *where a fetched artifact is installed* (the download manifests'
 `target=`, with values like `titles`, `payloads`, `packages`); and, separately, the far *side* of
 the host/target boundary. None is wrong on its own. The full enumeration lives in
@@ -200,7 +200,7 @@ itself to be helps decide the environment it gets. Choosing a category is a buil
 finding out which context resulted is a measurement.
 
 **The target axis is oops-sdk's, and it has confirmed this reading.** `include/oops/target.h`
-holds the four values and the `OOPS_TARGET_IS_PS4`/`OOPS_TARGET_IS_PS5` helpers, and its header
+holds the four values and the `OOPS_TARGET_IS_ORBIS`/`OOPS_TARGET_IS_PROSPERO` helpers, and its header
 states that `OOPS_TARGET` is what a binary was *compiled for* and not the environment it runs in.
 Quote that header rather than restating the list. The type is `oops_target_t`, the accessor
 `oops_get_target()`, and the enumerators `OOPS_ORBIS`, `OOPS_NEO`, `OOPS_PROSPERO`, `OOPS_TRINITY`
