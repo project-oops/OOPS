@@ -19,3 +19,6 @@
 [submodule "oops-apps"]
 	path = oops-apps
 	url = https://github.com/project-oops/oops-apps
+[submodule "oops-mesa"]
+	path = oops-mesa
+	url = https://github.com/project-oops/oops-mesa

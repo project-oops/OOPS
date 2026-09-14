@@ -26,7 +26,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$HERE")"
-PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk oops-apps"
+PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk oops-apps oops-mesa"
 ALLOW="$HERE/dashes-allowed.txt"
 
 # The marks this refuses, written out. That means this file contains what it forbids and

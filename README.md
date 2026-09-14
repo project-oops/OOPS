@@ -5,288 +5,161 @@
 
 # OOPS
 
-**O**rbistoun, **o**bSCEne, **P**rosperous, **S**ELFish.
+**The Clean-Room Toolchain, Hardware Oracle, and Emulation Platform.**
 
-Four projects aimed at one platform: an emulator, a conformance probe, remote management,
-and the file formats underneath them.
+OOPS (**O**rbistoun, **o**bSCEne, **P**rosperous, **S**ELFish) is an open-source, mathematically grounded platform stack for 8th and 9th generation console software (Orbis and Prospero). It combines an x86-64 native emulator, a live silicon hardware probe, a remote target management tool, and platform file format compilers.
 
-Site: **[project-oops.github.io/OOPS](https://project-oops.github.io/OOPS/)** - the hub, and
-each project's own site from there.
+Site: **[project-oops.github.io/OOPS](https://project-oops.github.io/OOPS/)**
 
-| | | |
-|---|---|---|
-| **[Orbistoun](https://github.com/project-oops/Orbistoun)** | the emulator | attempts to reimplement what a title runs on, so its code can run natively |
-| **[obSCEne](https://github.com/project-oops/obSCEne)** | the probe | a guest that interrogates whatever runs it and reports what it found |
-| **[Prosperous](https://github.com/project-oops/Prosperous)** | the instrument | remote management for anything that runs Orbis software |
-| **[SELFish](https://github.com/project-oops/SELFish)** | the formats | read, write and build tools for the platform's own file formats |
+| 📖 **[User Guide & Getting Started](docs/USER_GUIDE.md)** | ⚙️ **[Technical Architecture Reference (THE LOOP)](docs/THE_LOOP.md)** |
+| :--- | :--- |
+| *End-user workflows, building tools, deploying to PS5, and testing.* | *Closed-loop oracle, clean-room provenance, and deep architecture.* |
 
-Beside them, three more repositories, and none of them is a fifth project - OOPS is still the
-four above. Two are libraries, and things go into either because they were already being
-written twice, not because they might be shared; the third is what gets built on one of them:
+---
 
-- **[oops-libs](https://github.com/project-oops/oops-libs)** - Rust, and what the **host-side
-  tools** share: the build stamp, logging, paths and the in-app documentation viewer.
-- **[oops-sdk](https://github.com/project-oops/oops-sdk)** - freestanding C, and what the
-  **target-side payloads** share: display, input, audio, direct memory, time, threads and
-  sockets. Nothing links both.
-- **[oops-apps](https://github.com/project-oops/oops-apps)** - the **homebrew built on
-  oops-sdk**: Porthole, the target half of Prosperous's capture-and-input path, and the smaller
-  apps beside it. It depends on the collection rather than being depended on, and is swept so
-  that a change to the SDK that breaks an app shows up here. An app *does* something; a probe
-  *measures* something and belongs in obSCEne, which is the line that keeps the two apart.
+## The Core Concept: THE LOOP
 
-**This is the development entry point.** Clone it and you have everything, arranged so it
-builds - which matters because the four depend on each other and that is expected to
-increase rather than decrease.
+Unlike traditional homebrew or emulation efforts that develop in fragmented silos—often relying on leaked vendor SDKs, unverified guesses, or fragile per-game emulator hacks—**OOPS is designed as an interconnected, closed-loop feedback engine.**
 
-The separate repositories are how each project reaches the people who *use* it: releases,
-binaries, issues, and a README aimed at someone who wants that one thing. A person who
-wants to run a conformance probe against their emulator downloads it; a person changing
-how the probe works clones this.
-<!-- /oops:profile -->
+Every project in OOPS feeds into and verifies its siblings:
 
-## Layout
+```mermaid
+flowchart TD
+    subgraph Target_Payloads["1. Target Payloads & Hardware Probing"]
+        SDK["oops-sdk<br/>(Freestanding C Runtime)"] --> APPS["oops-apps<br/>(Conforming Apps: gl-cube)"]
+        SDK --> OBSCENE["obSCEne<br/>(Hardware Conformance Probe)"]
+    end
 
-```
-OOPS/                ← this meta-repo: the shared rules, the cross-project gates
-  orbistoun/         ← submodule - the emulator
-  obscene/           ← submodule - the probe
-  prosperous/        ← submodule - the instrument
-  selfish/           ← submodule - the formats
-  oops-libs/         ← submodule - the shared Rust the host-side tools use
-  oops-sdk/          ← submodule - the shared C the target-side payloads link
-  oops-apps/         ← submodule - the homebrew built on oops-sdk
-  docs/              ← conventions, architecture, publishing
-  tools/             ← the checks that need the whole collection checked out at once
+    subgraph Toolchain["2. Toolchain & Remote Management"]
+        APPS --> SELFISH["SELFish<br/>(Packaging: ELF -> eboot / title / pkg)"]
+        OBSCENE --> SELFISH
+        SELFISH --> PROS["Prosperous (pros)<br/>(Target Bridge & Log Streamer)"]
+        PROS --> PS5["Physical PS5 Target (192.168.1.211)<br/>(Silicon Ground Truth)"]
+    end
+
+    subgraph Emulation_Loop["3. Emulation & Closed-Loop Oracle"]
+        PS5 -- "Telemetry (klog)" --> AGENT["Agent / Developer<br/>(Translation Glue)"]
+        APPS -- "Executable" --> ORB["Orbistoun<br/>(x86-64 Native HLE Emulator)"]
+        ORB -- "Crash / Missing Struct" --> LOOP["THE LOOP (orbistoun-turn)<br/>Auto Blame & Watchdog"]
+        LOOP -- "Unmeasured Question" --> OBSCENE
+        AGENT -- "Synthesize Typed Rust HLE (known_by: measured)" --> ORB
+        ORB -- "Verdict: FURTHER" --> PROMOTE["Promote HLE & Advance Title"]
+        ORB -- "Verdict: BACK / Deadlock" --> HATCH["HALT & ESCALATE<br/>(Escape Hatch Tripped)"]
+    end
 ```
 
-**The arrangement is load-bearing rather than cosmetic.** obSCEne finds its siblings by
-relative path - `obscene/tool/Cargo.toml` resolves `../../selfish/crates/selfish-abi` and
-`../../prosperous/crates/pros-link` - so a renamed or re-nested checkout does not build.
-Cloning with `--recurse-submodules` makes it right by construction; cloning obSCEne on its
-own leaves those paths pointing at nothing, which is a missing sibling rather than a broken
-dependency. The directory names are lower-case because those build paths depend on it, which
-[The names](#the-names) and [docs/PUBLISHING.md](docs/PUBLISHING.md) explain.
+👉 **Read the comprehensive specification in [docs/THE_LOOP.md](docs/THE_LOOP.md)**.
 
-## Quickstart
+---
 
-Prerequisite: a Rust toolchain. obSCEne, oops-sdk and oops-apps compile C for the target and
-additionally need `clang` and `lld` under WSL or Linux; the rest builds anywhere.
-On Windows, `./bin/oops setup` installs that side for you - WSL, a build distribution of the
-collection's own called `oops-builder`, and the toolchain inside it - and `./bin/oops doctor`
-then says whether it worked. It never touches a WSL distribution you set up yourself.
+## The Seven Repositories at a Glance
 
+The collection consists of **four primary pillars** and **three supporting repositories**:
 
+| Repository | Focus | Role in THE LOOP | Primary Commands |
+|---|---|---|---|
+| **[Orbistoun](orbistoun/)** | The Emulator | Executes guest x86-64 code natively; auto-blames crashes via watchpoints and consumes silicon measurements. | `./bin/orbistoun run <title>`<br/>`orbistoun-cli questions` |
+| **[obSCEne](obscene/)** | The Hardware Oracle | Runs 400+ targeted checks directly on PS5 hardware to measure empirical struct layouts and return codes. | `./bin/obscene build`<br/>`scripts/sweep.sh` |
+| **[Prosperous](prosperous/)** | Target Management | Remotely registers consoles, deploys title packages over LAN, launches execution, and streams `klog`. | `pros check`<br/>`pros restore <dir> <dst>`<br/>`pros launch <id>` |
+| **[SELFish](selfish/)** | File Formats | Clean-room compiler and reader for signed executables (`eboot.bin`), title metadata (`param.json`, `keystone`), and `.pkg` files. | `selfish --format title`<br/>`selfish elf <file>` |
+| **[oops-sdk](oops-sdk/)** | Freestanding C SDK | Clean-room libc, RDNA2 AGC display/tiler, DualSense input, and audio runtime used by target payloads. | `include $(OOPS_SDK)/oops-sdk.mk` |
+| **[oops-apps](oops-apps/)** | Test Apps & Tracer | Known-source 3D test titles ([`gl-cube`](oops-apps/src/gl-cube)) and passive telemetry [`tracer`](oops-apps/src/tracer/) for capturing commercial game calls & shaders. | `make title`<br/>`./bin/oops-apps check` |
+| **[oops-libs](oops-libs/)** | Shared Rust Libs | Shared infrastructure for host tools: unified logging (`oops-log`), build stamps (`oops-build`), and paths (`oops-paths`). | Path dependency in host tools |
+
+---
+
+## Quickstart Guide
+
+### 1. Prerequisites
+- **Rust toolchain** (stable 2021 edition)
+- **C Cross-Compiler** (`clang` and `lld` 18+ for target payloads; Windows users use WSL or container)
+
+### 2. Clone the Collection
 ```bash
 git clone --recurse-submodules https://github.com/project-oops/OOPS
 cd OOPS
 ```
 
-Then `bin/oops`, the one vocabulary over four projects that do not share one:
-
+### 3. Environment Doctor & Build
+On Windows, `bin/oops setup` installs the lightweight `oops-builder` WSL distribution for compiling C payloads:
 ```bash
-./bin/oops setup           # Windows: WSL, the oops-builder distribution, the toolchain in it
-./bin/oops doctor          # can this machine build all four
-./bin/oops build           # everything, or: ./bin/oops build orbistoun
-./bin/oops test            # everything, or: ./bin/oops test prosperous
-./bin/oops all             # the meta gates, then every project's own gate
+./bin/oops setup           # Windows: sets up WSL oops-builder distribution
+./bin/oops doctor          # verify toolchains and dependencies
+./bin/oops build           # compile all tools and libraries
+./bin/oops test            # run the shared test suites
 ```
 
-Names can be shortened as long as they stay unambiguous, so `./bin/oops test pros` works. On
-Windows outside Git Bash, `bin\oops.cmd` is the same script.
+### 4. Common Developer Workflows
 
-**Every project carries the same shared verbs at `bin/<project>`, and this relays to them** -
-`oops check selfish` is `selfish/bin/selfish check`. So there is one command reached two ways,
-and this repository knows nothing about how any of them builds. CI runs it too, for the same
-reason: the moment the command CI runs and the command a person runs are different commands,
-one of them is untested. `./bin/oops --help` lists the rest.
+#### A. Build a 3D Test Application
+```bash
+cd oops-apps/src/gl-cube
+make title
+```
+This compiles `gl-cube.elf` using `oops-sdk` and automatically packages a complete title directory (`build/title/GLCB00001/`) using `selfish` and `obscene-tool`.
 
-A failing project does not stop the others; failures are collected and reported at the end, so
-one run tells you everything that is broken rather than only the first thing.
+#### B. Deploy and Run on Real Hardware
+```bash
+# Check console status (target IP defaults to config or 192.168.1.211)
+pros.exe check
 
-**[docs/BUILDING.md](docs/BUILDING.md)** has the rest: every verb, what it maps to in each
-project, what depends on what, and the Windows and WSL handling.
+# Deploy title to /data/homebrew/ scan root and launch
+pros.exe restore oops-apps\src\gl-cube\build\title\GLCB00001 /data/homebrew/GLCB00001
+pros.exe launch GLCB00001
 
-The meta-repo holds the shared rules, those checks, and this entry point. The building happens
-inside each project.
+# Stream live console kernel log
+pros.exe logs --seconds 15
+```
 
-## Who clones what
+#### C. Run in the Orbistoun Emulator
+```bash
+cd orbistoun
+./bin/orbistoun run GLCB00001
+```
+Orbistoun parses the title container, resolves imports by NID hash, executes natively, and diffs the resulting trace against previous runs (`FURTHER` / `same` / `BACK`).
 
-| you are | you want | you get |
-|---|---|---|
-| developing any of it | `OOPS` | all four, side by side, building against each other |
-| running the emulator | Orbistoun's releases | a binary |
-| testing your own emulator | obSCEne's releases | the probe module and its reports |
-| talking to the hardware | Prosperous's releases | a binary |
-| parsing these formats in your own project | SELFish | a git dependency on the repository |
+---
 
-The consequence worth stating: **a cross-repository dependency is not friction here.** The
-development layout always has all four, so a project reaching into a sibling costs nothing
-structural, and the collection should not be shaped around avoiding it.
+## Strict Clean-Room Rules (CONVENTIONS §1 & §10)
 
-## The names
+1. **Zero Leaked Code**: Zero vendor SDK headers, zero leaked binaries, zero disassembled source code reproduction. Every subsystem is freestanding and documented from public specifications or empirical hardware measurements.
+2. **First-Party Tooling Only**: Never bypass collection tools with one-off Python or shell scripts. We always use `selfish` for packaging, `pros` for hardware transport, and `app.mk` for builds. If a tool has a bug or lacks a flag, **we fix the tool**.
+3. **No Fake Stubs (The Anti-Kyty Principle)**: Emulators must never forge return codes to bypass crashes. Gaps are measured on real silicon via `obSCEne`, grounded in `known_by: measured`, or left as explicit failing stubs.
 
-Each is a pun on the platform's own vocabulary, and the capitalisation is the joke:
+---
 
-- **Orbistoun** - **Orbis**, the platform's operating system. The thing being reimplemented.
-- **obSCEne** - **SCE**, the prefix carried by every function the platform exports. It is
-  in the middle of the word because it is in the middle of every symbol.
-- **Prosperous** - **Prospero**, the current-generation hardware's development codename.
-  Its command is `pros`.
-- **SELFish** - **SELF**, the signed executable container every module on the platform
-  arrives in.
+## Directory Layout & Shared Paths
 
-Write them that way. `obSCEne` and `SELFish` are not typos and the shape carries the
-meaning; flattened to "Obscene" and "Selfish" they are just two ordinary adjectives.
+```
+OOPS/                ← Meta-repository and shared orchestration scripts
+  orbistoun/         ← Submodule: High-level emulator
+  obscene/           ← Submodule: Hardware conformance probe
+  prosperous/        ← Submodule: Target management CLI (pros) and GUI
+  selfish/           ← Submodule: File format compiler and inspector
+  oops-sdk/          ← Submodule: Clean-room freestanding C SDK
+  oops-apps/         ← Submodule: Conforming homebrew titles & testbed
+  oops-libs/         ← Submodule: Shared host-side Rust crates
+  docs/              ← Ecosystem conventions, architecture, THE LOOP
+  bin/oops           ← Master CLI dispatcher for the entire collection
+```
 
-Directory and submodule names are lower-case (`obscene`, `selfish`) because a build path
-depends on it - see [docs/PUBLISHING.md](docs/PUBLISHING.md).
+Every tool shares a unified data directory:
+- **Windows**: `%APPDATA%\OOPS\` (configs, target registries, save data) and `%LOCALAPPDATA%\OOPS\` (rebuildable caches, logs)
+- **Linux / macOS**: `~/.local/share/OOPS/` and `~/.cache/OOPS/`
 
-<!-- oops:profile -->
-## What the collection is for
+---
 
-**Running Orbis software on an ordinary computer, from a codebase that can be published.**
+## Where to Read Next
 
-The second half is the constraint that shapes everything. It is not difficult to make an
-emulator work by copying what the hardware does; it is difficult to make one whose every
-behaviour can be explained from a lawful source, and only that kind can be shared, packaged
-or accepted from a contributor. So no firmware, no keys, no decrypted titles, no
-disassembly - and where a fact came from is recorded beside the fact.
+- **[docs/THE_LOOP.md](docs/THE_LOOP.md)** — The complete specification of the automated development and hardware oracle loop.
+- **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)** — Core engineering rules: provenance, clean-room standards, and decision logging.
+- **[docs/BUILDING.md](docs/BUILDING.md)** — Complete reference for `./bin/oops` commands, cross-compilation, and CI workflows.
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Detailed inter-project boundaries and compile-time/runtime dependencies.
+- **[docs/GLOSSARY.md](docs/GLOSSARY.md)** — Platform terminology, NID hashes, and ELF structures demystified.
 
-That constraint is why there are four projects instead of one.
+---
+
+## License
+
+Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
 <!-- /oops:profile -->
-
-<!-- oops:profile -->
-## The oracle problem, which is the whole shape of it
-
-An emulator of an undocumented platform can tell you *that* a guest died and almost never
-*whether an answer was right*. A function returns a number; the guest carries on or it does
-not; forty thousand frames later something is wrong. There is no specification to test
-against, because the specification is the thing being reconstructed.
-
-Each project exists to remove one unknown from that question:
-
-```
-                        SELFish
-              what is actually in the file
-                            |
-        +-------------------+-------------------+
-        |                   |                   |
-   Orbistoun            obSCEne            Prosperous
-   what should       what does the       what does the
-   happen here       platform do         real one do
-```
-
-- **obSCEne removes the guest.** It is a program *we* wrote, so what it asks for is known
-  exactly and what came back can be judged. A commercial title can only ever tell you it
-  stopped.
-- **Prosperous removes the emulator.** The same probe on real hardware answers what the
-  platform does, rather than what some reimplementation of it does.
-- **SELFish removes the parser.** When two projects disagree about a file, one shared and
-  cited reader is a better answer than two independent readings.
-<!-- /oops:profile -->
-
-The order matters. A probe with nothing to run on compares emulators to each other; a
-parser with no probe has nothing to check itself against.
-
-## What each one is, at length
-
-**Orbistoun** is a high-level emulator. Guest instructions are x86-64 and run natively -
-there is no interpreter and no recompiler - so the work is entirely the operating system
-beneath them: the loader, the address space, threads, filesystem, and the graphics command
-stream translated to Vulkan. Interception is linking rather than hooking: a guest imports
-by hash, the loader resolves it, and the whole import list is therefore known before
-anything executes.
-
-**obSCEne** is a conformance probe shaped like a guest. Orbistoun loads it exactly as it
-loads a commercial title, and because every call it makes was written deliberately, its
-report is ground truth rather than inference. The same binary runs on other emulators and
-on real hardware, so the same questions get put to every implementation and the answers
-line up in one table.
-
-**Prosperous** is the instrument for a running target, and a library before it is a tool. It
-delivers a payload, supervises it, reads back the log, runs commands, and moves files both
-ways - titles, saves, packages - from a command line or a window. `pros-link`, the transport
-underneath it, is a path dependency of obSCEne and orbistoun rather than a copy in each. It
-is what gives obSCEne somewhere to run that is not an emulator; it is what makes a save from
-real hardware into a tree Orbistoun can mount; and it is useful to anyone with a payload of
-their own.
-
-**SELFish** is the format layer: signed executables, containers, symbol hashing, packages,
-the filesystem inside them, and the linking that produces a loadable module. Its discipline
-is stricter than the others' - a format fact must come from a citable public source, and a
-real file may be used to *check* a fact but never to *supply* one.
-
-## What is actually wired up today
-
-The diagram above is the intent. This is the state:
-
-| edge | today |
-|---|---|
-| obSCEne → SELFish | **real** - path dependencies on the format crates |
-| obSCEne → Prosperous | **real** - a path dependency on the link layer |
-| Orbistoun → SELFish | **real, dev only** - a second reader over one corpus for the differential test (orbistoun#D653); `cargo build` does not need SELFish, `cargo test` and `clippy --all-targets` do |
-| Prosperous → SELFish | **real** - a path dependency on `selfish-title` for the param.sfo reader (prosperous#D028) |
-| Orbistoun ↔ obSCEne | by artefact and document: Orbistoun runs the probe and reads its report |
-| Prosperous ↔ obSCEne | by artefact: Prosperous delivers the payload to hardware |
-
-Every consumer now reaches SELFish, two of them since this table first said otherwise. Whether the overlap between
-`selfish-elf` and `orbistoun-elf` should be resolved is an **open question with arguments on
-both sides**, not an oversight - see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Status
-
-**Published, and wired as submodules.** All seven repositories - the four projects, the two
-libraries and oops-apps - are submodules of this one, each pinned to a revision. Six have a
-commit, a remote and a public `main` under
-[github.com/project-oops](https://github.com/project-oops), oops-apps included and pushed, so a
-`--recurse-submodules` clone now brings all seven down. A clone of this repository with
-`--recurse-submodules`, or a plain clone followed by `oops bootstrap`, brings the collection
-down at the layout the builds expect. [docs/PUBLISHING.md](docs/PUBLISHING.md) has what was
-done and what is still outstanding.
-
-## One directory, shared
-
-Every tool writes to the same place: `%APPDATA%\OOPS\` on Windows, `~/.local/share/OOPS/` on
-Linux, the equivalent on macOS. Not a subdirectory each - **one directory.**
-
-That is the point rather than a convenience. A save Prosperous pulls off real hardware is the
-tree Orbistoun mounts as that title's overlay, because both are keyed by the guest's own path
-and neither has to learn the other's format. A target registered once is reachable from every
-tool that can talk to one. A report obSCEne measured is where Orbistoun looks for it.
-
-Bulk that can be rebuilt - models, runtimes, compiled shaders, downloads, traces, logs - goes to
-`%LOCALAPPDATA%\OOPS\` instead, so a roaming profile does not carry four gigabytes it could
-fetch again. A portable run puts both in one directory beside the binary.
-
-The rules live in [oops-paths](https://github.com/project-oops/oops-libs); the reasoning, including
-why this started as a directory per tool and should not have, is in its decision log.
-
-## Licence
-
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option -
-the Rust ecosystem convention, and the same terms every project in the collection carries.
-
-## Where to read next
-
-- [docs/BUILDING.md](docs/BUILDING.md) - `bin/oops` in full: every verb, what it maps to in
-  each project, what depends on what, the Windows and WSL handling, and how CI uses it
-- [docs/CONVENTIONS.md](docs/CONVENTIONS.md) - the rules that hold in all four: provenance,
-  naming, decision logs, worklogs, gates. Each project states only what it adds
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - how the four meet, what crosses a
-  boundary, and how to cite one project's decisions from another
-- [docs/GLOSSARY.md](docs/GLOSSARY.md) - the front door to the vocabulary: standard ELF, the
-  vendor's extensions, and the words that mean different things in different repositories
-- [docs/PUBLISHING.md](docs/PUBLISHING.md) - publishing the collection and wiring up submodules
-- [tools/](tools/) - the checks that need every project checked out at once, which is the
-  only thing this repository can do that none of them can
-- [oops-libs](https://github.com/project-oops/oops-libs) - the shared crates, and the rule about
-  what is allowed into them
-- [oops-sdk](https://github.com/project-oops/oops-sdk) - the shared target-side C, and the same
-  rule applied to a payload rather than a tool
-- [oops-apps](https://github.com/project-oops/oops-apps) - the homebrew built on oops-sdk, and
-  the line between an app and a probe
-
-Each project carries its own decision log, worklog and workflow, and states the principles
-it adds to [CONVENTIONS.md](docs/CONVENTIONS.md). Read this and then the one you are working
-in; neither restates the other.

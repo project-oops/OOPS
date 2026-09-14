@@ -4,7 +4,7 @@
 a boundary between them, and which of those crossings is a decision nobody has made yet.
 
 The oracle problem - why there are four rather than one - is in
-[the README](../README.md#the-oracle-problem-which-is-the-whole-shape-of-it) and is not
+[the README](../README.md#the-core-concept-the-loop) and is not
 restated here.
 
 ## What crosses a boundary

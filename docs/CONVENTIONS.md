@@ -122,7 +122,7 @@ renaming them stops the tools working. They stay in code. Prose describing them 
 have to repeat them.
 
 The project names themselves are the other exception, and they are puns on this vocabulary -
-see [the naming section in the README](../README.md#the-names). Write them stylised:
+see [the naming section in the README](../README.md#the-seven-repositories-at-a-glance). Write them stylised:
 **Orbistoun**, **obSCEne**, **Prosperous**, **SELFish**.
 
 ### The words for our own layers
@@ -431,6 +431,21 @@ against printing.
 A tool's own startup line belongs at `debug`: which build, and where it is writing. Those are
 the two facts every bug report needs and nobody remembers to ask for, and an ordinary run should
 still be silent.
+
+## 10. First-party tooling: use it, dogfood it, fix it, never bypass it
+
+When a project has its own tooling for building, packaging, staging, or communicating with hardware (such as `SELFish`, `Prosperous`, `oops-sdk`, or `obscene-tool`), all workflows and every coding agent must use those tools directly through their canonical interfaces.
+
+1. **Never route around first-party tools with scratch scripts.**
+   Do not write one-off Python or shell scripts to manually craft containers, hand-assemble title directories, fake metadata files (`param.json`, `keystone`, `nptitle.dat`), or borrow binaries and assets from sibling project build trees.
+2. **Bypassing tools starves them of the feedback loop required to mature.**
+   When an agent routes around a tool's limitation, crash, or missing flag with an ad-hoc script, the failure remains invisible, the root defect goes unfixed, and the collection never matures.
+3. **If a tool is missing a feature or fails an assertion, fix the tool itself.**
+   Improve `selfish`, `prosperous`, `app.mk`, or `oops-sdk` directly, test the fix, and submit it.
+4. **Use canonical build and deployment entry points:**
+   - Applications and titles: `make title`, `make eboot`, `make elf` via `app.mk`.
+   - Containers and title layouts: `selfish --format title` or `selfish --format eboot`.
+   - Hardware operations: `pros` (`pros check`, `pros launch`, `pros send`, `pros logs`, `pros titles`, `pros close`).
 
 ## Where a project differs
 

@@ -36,6 +36,15 @@
 #                                 the toolchain inside it. tools/setup-wsl.sh
 #   oops exec "<cmd>" [proj...]   run an arbitrary command in each project
 #   oops list                     the members, where they are, whether present
+#   oops tracer <titleid>         capture a title's shaders off hardware and rank the
+#                                 translator's gaps. Builds the tracer payload (app.mk),
+#                                 launches the title and injects the tracer through
+#                                 prosperous, pulls the dumps, and runs orbistoun's shader
+#                                 census over them - one canonical path from a title id to a
+#                                 coverage worklist, using only first-party tools. Options:
+#                                 -s <seconds>, -t <target>, --out <dir>, --no-ingest,
+#                                 --keep-open. The pulled shaders are the title's own
+#                                 bytecode: a local yardstick, never committed.
 #
 # Projects are named in full or by prefix, so `oops build orb` is `oops build
 # orbistoun`. Omit the project to mean every member.
@@ -59,7 +68,7 @@ ROOT="$(dirname "$HERE")"
 # is the homebrew built on `oops-sdk`; it depends on the collection rather than being depended
 # on, and it is swept for the same reason a consumer is - a change to the SDK that breaks an
 # app should show here.
-PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk oops-apps"
+PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk oops-apps oops-mesa"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     BOLD=$'\033[1m'; RED=$'\033[31m'; GREEN=$'\033[32m'; DIM=$'\033[2m'; OFF=$'\033[0m'
@@ -93,7 +102,7 @@ needs_wsl() {
 # it, where the failure reads as a missing program rather than the missing toolchain it
 # is.
 builds_c() {
-    case "$1" in obscene|oops-sdk|oops-apps) return 0 ;; *) return 1 ;; esac
+    case "$1" in obscene|oops-sdk|oops-apps|oops-mesa) return 0 ;; *) return 1 ;; esac
 }
 
 # The WSL distributions a person could build in, one per line, empty if there are none.
@@ -567,6 +576,112 @@ doctor() {
     return "$rc"
 }
 
+# oops tracer <titleid> - a title's shaders off hardware, into orbistoun's coverage census.
+#
+# The reproducible, canonical path from an installed title to a translation-coverage report,
+# built entirely out of first-party tools (CONVENTIONS §10, no scratch bridging):
+#
+#   1. app.mk  builds the tracer payload      (make elf)
+#   2. pros    launches the title and injects  (pros launch / pros send, via elfldr)
+#   3. pros    watches the log and pulls dumps (pros logs / pros backup)
+#   4. orbistoun-cli ranks what will not translate over the captured shaders (the census)
+#
+# What it produces is a *worklist* - which RDNA2 instructions the translator still lacks -
+# not a shipped asset. The shaders it pulls are the title's own copyrighted bytecode: they
+# are a local yardstick only. They land under orbistoun's already-gitignored `titles/<id>/`
+# tree - the same place the data-dir convention keeps "everything one title owns" - so no new
+# directory is invented; they are never committed (the provenance guard also bans their `.bin`
+# extension from the index) and can be deleted once the census has read them.
+cmd_tracer() {
+    local id="" target="" seconds=45 out="" ingest=1 keep_open=0
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            -t|--target)  target="$2"; shift 2 ;;
+            -s|--seconds) seconds="$2"; shift 2 ;;
+            --out)        out="$2"; shift 2 ;;
+            --no-ingest)  ingest=0; shift ;;
+            --keep-open)  keep_open=1; shift ;;
+            -h|--help)
+                note "oops tracer <titleid> [-s seconds] [-t target] [--out dir] [--no-ingest] [--keep-open]"
+                return 0 ;;
+            -*) die "tracer: unknown option '$1'" ;;
+            *)  if [ -z "$id" ]; then id="$1"; shift; else die "tracer: unexpected argument '$1'"; fi ;;
+        esac
+    done
+    [ -n "$id" ] || die "tracer needs a title id: oops tracer PPSA02664"
+
+    local tracer_dir="$ROOT/oops-apps/src/tracer"
+    local elf="$tracer_dir/build/tracer.elf"
+    local pros="$ROOT/prosperous/bin/prosperous"
+    local remote="/data/shaders"        # shader_dump.c's default dump directory on the target
+    # Land under the already-gitignored `titles/<id>/` tree - what the data-dir convention
+    # (orbistoun-paths::dirs::TITLES) calls "everything one title owns". No new directory.
+    out="${out:-$ROOT/orbistoun/titles/$id/shaders}"
+    [ -x "$pros" ] || die "prosperous not found at $pros - is the collection checked out? (oops bootstrap)"
+    [ -d "$tracer_dir" ] || die "tracer sources not found at $tracer_dir"
+
+    # One prosperous call, with the chosen target threaded through. `--name` is global, so it
+    # is legal on every subcommand and its position does not matter.
+    p() { if [ -n "$target" ]; then "$pros" "$@" --name "$target"; else "$pros" "$@"; fi; }
+
+    # 1. Build the payload through app.mk - never a hand-rolled clang line (CONVENTIONS §10).
+    #    Freestanding C, so on Windows it re-enters WSL exactly as the C repositories do.
+    step "build the tracer payload (make elf)"
+    if needs_wsl; then run_via_wsl "$tracer_dir" make elf
+    else ( cd "$tracer_dir" && make elf ); fi
+    [ -f "$elf" ] || die "tracer build produced no $elf"
+
+    # 2. Confirm the target can take a payload before starting anything on it.
+    step "check the target"
+    p check || die "target not reachable - register and check it with prosperous first"
+
+    # 3. Launch the title the way the home screen does, then inject the tracer into it.
+    #
+    #    `pros send` runs the payload via elfldr, standalone - the tracer then finds the title
+    #    on its own: it scans for the process that loaded `libSceAgc` (only the title does) and
+    #    attaches through the SDK's kernel read/write (krw.c is in its sources). So it needs no
+    #    title argument and `send` needs no `--attach`. The one consequence to know: it hooks
+    #    `sceAgcCreateShader`, so it captures shaders created *after* it attaches - a title that
+    #    compiles its whole set at launch is best captured by playing into a scene during the
+    #    window below, not by the launch burst alone.
+    step "launch $id"
+    p launch "$id" || die "could not launch $id"
+    step "inject the tracer (elfldr) and listen while it hooks and dumps (${seconds}s)"
+    p send "$elf" --seconds "$seconds" || die "could not send the tracer payload"
+
+    # 4. Let shaders accumulate as the title runs, watching the log for what was captured.
+    step "watch the log while shaders accumulate (${seconds}s)"
+    p logs --seconds "$seconds" || note "log stream ended early"
+
+    # 5. Pull the whole dump directory under the already-gitignored `titles/<id>/` tree (title
+    #    assets: local only, never tracked - see the header).
+    step "pull the shader dumps -> $out"
+    mkdir -p "$out"
+    p backup "$remote" --into "$out" \
+        || die "could not pull $remote - did the tracer dump anything? read the log above"
+
+    # 6. Return the console to a clean state unless asked to leave the title up.
+    if [ "$keep_open" -eq 0 ]; then
+        step "close $id"
+        p close "$id" || note "close reported a problem; the title may still be open"
+    fi
+
+    # 7. Ingest: rank what the translator cannot yet handle across the captured shaders. This
+    #    is the payoff - a worklist, not a pile of files. The census reads `.bin` bytecode
+    #    directly and hashes each shader's content itself, so the tracer's filenames need not
+    #    match orbistoun's ids.
+    if [ "$ingest" -eq 1 ]; then
+        step "census: rank the translator's gaps over the captured corpus"
+        ( cd "$ROOT/orbistoun" && cargo run -q -p orbistoun-cli -- shaders "$out" )
+    else
+        note "skipping ingest; run it with:"
+        note "  ( cd orbistoun && cargo run -q -p orbistoun-cli -- shaders '$out' )"
+    fi
+
+    step "done"
+    note "shaders: $out   (local coverage corpus, never committed)"
+}
+
 # The header comment above IS the usage text, so the two cannot drift. The range
 # ends at the line before `set -euo`, found rather than hardcoded - a hardcoded
 # number silently truncates the help the next time a verb is documented.
@@ -588,6 +703,7 @@ case "$cmd" in
     status)  status_all ;;
     doctor)  doctor ;;
     setup)   bash "$ROOT/tools/setup-wsl.sh" "$@" ;;
+    tracer)  cmd_tracer "$@" ;;
     list)
         for p in $PROJECTS; do
             if [ -d "$ROOT/$p" ]; then s="present"; else s="absent"; fi
