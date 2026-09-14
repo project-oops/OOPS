@@ -34,6 +34,20 @@ jobs:
   gates:
     runs-on: ubuntu-latest
     steps:
+      # TEMP diagnostic: does OOPS_CI_TOKEN exist and can it read the private oops-mesa?
+      # Uses the same x-access-token form bootstrap already uses; prints no secret value.
+      - name: Diagnose OOPS_CI_TOKEN reach
+        env:
+          T: ${{ secrets.OOPS_CI_TOKEN }}
+        run: |
+          if [ -z "$T" ]; then echo "DIAG: OOPS_CI_TOKEN is EMPTY / not set"; exit 0; fi
+          echo "DIAG: OOPS_CI_TOKEN is set"
+          if git ls-remote "https://x-access-token:$T@github.com/project-oops/oops-mesa" >/dev/null 2>&1; then
+            echo "DIAG: CAN read oops-mesa"
+          else
+            echo "DIAG: set but CANNOT read oops-mesa"
+          fi
+
       - uses: actions/checkout@v4
         with:
           # Both checkers need every repository present. Until they are submodules this
