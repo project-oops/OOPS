@@ -39,10 +39,6 @@ jobs:
           # Both checkers need every repository present. Until they are submodules this
           # resolves to nothing and the guard below says so rather than passing an empty run.
           submodules: recursive
-          # The default GITHUB_TOKEN is scoped to this repo only, so it cannot clone a
-          # private member (oops-mesa). Use the org's cross-repo token when it is set, and
-          # fall back to the default for the public members when it is not.
-          token: ${{ secrets.OOPS_CI_TOKEN || github.token }}
 
       # `check-links.sh` reads the tracked set with `git ls-files`, so the projects have to be
       # real checkouts rather than unpacked directories.
