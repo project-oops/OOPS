@@ -59,7 +59,7 @@ flowchart TD
 
 ### Stage 1: Build the Payload (`oops-sdk` & `oops-apps`)
 - **[oops-sdk](../oops-sdk/)**: A 100% clean-room, freestanding C runtime (`-ffreestanding -nostdlib`). Implements direct AGC GPU buffer allocations, hardware tile swizzling, DualSense input polling, audio PCM streaming, and POSIX threading stubs without touching vendor SDK headers.
-- **[oops-apps](../oops-apps/)**: Known-source applications built on `oops-sdk` (e.g. [`gl-cube`](../oops-apps/src/gl-cube), [`wipeout`](../oops-apps/src/wipeout), [`home`](../oops-apps/src/home)). Because we write the source code, any rendering artifact or crash has an unambiguous ground-truth expectation.
+- **[oops-apps](../oops-apps/)**: Known-source applications built on `oops-sdk` (e.g. [`gl-cube`](../oops-apps/src/gl-cube), [`wipeout`](../oops-apps/src/wipeout), [`seashell`](../oops-apps/src/seashell)). Because we write the source code, any rendering artifact or crash has an unambiguous ground-truth expectation.
 
 ### Stage 2: Package with Conforming Formats (`SELFish`)
 - **[SELFish](../selfish/)**: Wraps compiled `.elf` binaries into signed-executable containers (`eboot.bin`), structures title directories (`--format title`), synthesizes conforming metadata (`param.json`, fake-signed `keystone`, `nptitle.dat`), and packages installable files (`.pkg`).
