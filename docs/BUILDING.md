@@ -31,9 +31,9 @@ That is also why CI uses these: the moment the command CI runs and the command a
 are different commands, one of them is untested, and it is always the one nobody watches.
 
 There is a fallback for a project that has not grown an entry point yet - it is treated as a
-plain cargo workspace - but all seven have one, the libraries and oops-apps included. oops-sdk
-and oops-apps are the ones that are not cargo at all: their entry points wrap `make`, which is
-exactly why the fallback cannot be the interface.
+plain cargo workspace - but all eight have one, the libraries, oops-apps and oops-mesa included.
+oops-sdk, oops-apps and oops-mesa are the ones that are not cargo at all: their entry points wrap
+`make`, which is exactly why the fallback cannot be the interface.
 
 ### There is no `<project>.sh` any more
 
@@ -66,6 +66,7 @@ meta-repo's own, because they are about the collection rather than about one pro
 | `setup` | make it able to: WSL, the `oops-builder` distribution, the toolchain inside it |
 | `exec "<cmd>" [project...]` | run an arbitrary command in each project |
 | `list` | the members, where they are, whether present |
+| `tracer <titleid>` | capture a title's shaders off hardware into orbistoun's coverage census: build the tracer payload, launch the title, inject the tracer |
 
 Omit the project to mean the whole collection. Names may be shortened while they stay
 unambiguous, so `oops test pros` is `oops test prosperous`.
@@ -117,7 +118,9 @@ selfish      ← oops-libs
 orbistoun    ← oops-libs, and selfish (dev-only, for the D653 differential test)
 prosperous   ← oops-libs, and selfish (selfish-title, the param.sfo reader)
 obscene      ← selfish, prosperous, oops-libs, and oops-sdk (a C/make edge, not a Cargo one)
-oops-apps    ← oops-sdk            (every app's Makefile includes ../../oops-sdk/oops-sdk.mk)
+oops-apps    ← oops-sdk            (every app's Makefile includes ../../oops-sdk/oops-sdk.mk;
+                                    a GL app such as gl-cube also pulls ../oops-mesa)
+oops-mesa    ← oops-sdk            (a C/make edge: upstream Mesa's GL on the SDK runtime)
 ```
 
 **Every project takes oops-libs**, so nothing here builds from a clone of only its own
@@ -142,18 +145,18 @@ what its CI runs:
 
 ## Windows, WSL, and why obSCEne is different
 
-The Rust builds anywhere. obSCEne, oops-sdk and oops-apps compile freestanding C for the
+The Rust builds anywhere. obSCEne, oops-sdk, oops-apps and oops-mesa compile freestanding C for the
 target with `clang` and `lld`, which under Git Bash usually means neither is present.
 
-`oops` detects that and re-enters through WSL for those three rather than failing with a
-compiler error that reads as a code fault - or, for the two that are only a Makefile, with
+`oops` detects that and re-enters through WSL for those four rather than failing with a
+compiler error that reads as a code fault - or, for the three that are only a Makefile, with
 `make: command not found`, which reads as nothing at all. `OOPS_NO_WSL=1` refuses instead of
 delegating. A WSL with no distribution installed is the same as no WSL, and `oops doctor`
 says which of the two it found.
 
 `./bin/oops setup` does the Windows side. It registers a distribution of the collection's own,
 **`oops-builder`**, from the Ubuntu image, and installs into it the toolchain obSCEne documents
-plus what the other two C repositories need. It is `tools/setup-wsl.sh`, it runs again
+plus what the other three C repositories need. It is `tools/setup-wsl.sh`, it runs again
 harmlessly, and `--dry-run` says what it would do without doing it. On a Linux machine the same
 script installs the same packages directly.
 
@@ -225,7 +228,7 @@ checkouts.
 
 ### A private sibling needs a token
 
-All seven repositories are public, so `bootstrap` clones a sibling with no credential and this
+All eight repositories are public, so `bootstrap` clones a sibling with no credential and this
 section is here for the day one of them is not.
 
 They were private for about twenty minutes, and it broke immediately: a workflow's own

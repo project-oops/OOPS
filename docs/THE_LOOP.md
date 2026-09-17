@@ -1,6 +1,6 @@
 # The OOPS Loop
 
-**How the seven repositories of the OOPS collection form a single, self-developing engineering cycle.**
+**How the eight repositories of the OOPS collection form a single, self-developing engineering cycle.**
 
 ---
 
@@ -19,6 +19,8 @@ flowchart TD
     subgraph S1["Stage 1: Target Payloads"]
         SDK["oops-sdk<br/>(Freestanding C Runtime)"] --> APPS["oops-apps<br/>(Conforming Apps: gl-cube, wipeout)"]
         SDK --> OBSCENE["obSCEne<br/>(Hardware Conformance Probe)"]
+        SDK --> MESA["oops-mesa<br/>(OpenGL 3.3 over upstream Mesa)"]
+        MESA --> APPS
     end
 
     subgraph S2["Stage 2: Packaging & Toolchain"]
@@ -74,9 +76,9 @@ flowchart TD
 - **[tracer](../oops-apps/src/tracer/) (Passive Observation)**: While obSCEne actively probes controlled inputs, `tracer` hooks running commercial games in-process on real hardware. It records actual call sequences, valid constant spaces, out-parameter buffer diffs, submitted PM4 DCB command buffers, and bound RDNA2 shader binaries without modifying game code. Decoded traces feed directly into `orbistoun-corpus` and `orbistoun-gpu`.
 
 #### Why Three obSCEne Target Builds? (`payload`, `eboot`, `pkg`)
-On real console firmware, **privileges, sandboxing, and library resolution change depending on how code is launched**. Testing all three execution contexts (`./scripts/sweep.sh`) is essential to map the operating system:
+On real console firmware, **privileges, sandboxing, and library resolution change depending on how code is launched**. Testing all three launch modes (`./scripts/sweep.sh`) is essential to map the operating system:
 
-| Context | Delivery & Loader | Privileges & Environment | What It Measures |
+| Launch mode | Delivery & Loader | Privileges & Environment | What It Measures |
 |---|---|---|---|
 | **`payload`** | Sent to `:9021` via `elfldr` (`pros send`). Bare ELF. | Outside title sandbox; elevated kernel privileges; raw POSIX socket and memory access. | Raw kernel syscalls, hardware device drivers, and memory paging without userland restrictions. |
 | **`eboot`** | Staged in `/data/homebrew/<ID>` and launched via `pros launch`. | Signed container running as a retail `BIG_APP` (`category 0`); HDMI display ownership; controller focus. | Universal graphics queues (`libSceAgc`), video scanout, DualSense controller polling, and retail app lifecycle. |
@@ -118,8 +120,11 @@ The OOPS collection is checked out as side-by-side sibling repositories under a 
 | `obscene` | `../../selfish/crates/*` | Package authoring and container parsing |
 | `obscene` | `../../prosperous/crates/pros-link` | Remote target deployment & test transport |
 | `obscene` | `../../oops-sdk` | Freestanding C runtime for probe payloads |
+| `obscene` | `../../oops-libs/crates/*` | Shared build stamp, logging, and paths |
 | `oops-apps` | `../../oops-sdk` | Shared application Makefile (`app.mk`) and libc stubs |
 | `oops-apps` | `../../selfish` | Automated title packaging (`make title`) |
+| `oops-apps` | `../../oops-mesa` | OpenGL 3.3 for apps that draw (gl-cube preamble) |
+| `oops-mesa` | `../../oops-sdk` | Freestanding C runtime under the GL stack |
 | `orbistoun` | `../../oops-libs/crates/*` | Shared build metadata, paths, and logging |
 | `prosperous` | `../../selfish/crates/selfish-title` | Title metadata and SFO parsing |
 

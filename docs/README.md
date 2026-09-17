@@ -11,7 +11,7 @@ Looking for a project rather than the collection? [orbistoun](https://github.com
 [root README](../README.md) has the shape of the whole thing, including the oracle problem
 that explains why there are four projects instead of one.
 
-## The five documents
+## The seven documents
 
 **[CONVENTIONS.md](CONVENTIONS.md)** - the rules that hold everywhere, in nine numbered
 sections. Read 1, 2 and 3 before changing anything:
@@ -28,7 +28,7 @@ sections. Read 1, 2 and 3 before changing anything:
 | §8 | Gates - including that a guard is not finished until somebody has made it fail |
 | §9 | Logging |
 
-Sections are cited by number and by anchor from all seven repositories, so they are stable:
+Sections are cited by number and by anchor from all eight repositories, so they are stable:
 renaming one breaks links in code comments, `.gitattributes` files and CI workflows.
 
 **[ARCHITECTURE.md](ARCHITECTURE.md)** - how the four fit together. What crosses a boundary
@@ -37,7 +37,7 @@ licence question, and how to cite a decision in another project.
 
 **[BUILDING.md](BUILDING.md)** - one vocabulary over members that do not share one build.
 Every verb `bin/oops` takes, what each maps to per project, what depends on what, and why the C
-repositories (obSCEne, oops-sdk, oops-apps) need WSL while the rest builds anywhere.
+repositories (obSCEne, oops-sdk, oops-apps, oops-mesa) need WSL while the rest builds anywhere.
 
 **[PUBLISHING.md](PUBLISHING.md)** - the repositories, the submodule wiring, and the order
 to do it in.
@@ -49,6 +49,13 @@ which are documented nowhere else. Also the words that mean different things in 
 repositories - `check`, `shape`, `corpus`, `probe` and several more each carry two senses, and
 nothing looks wrong when you read the wrong one. The glossary's own table is the full list.
 
+**[THE_LOOP.md](THE_LOOP.md)** - the closed-loop oracle in full: the stages a build and run
+pass through, the escape-hatch triggers that stop a runaway loop, and the sibling dependencies
+that carry the work between projects. The root README has the shape; this has the specification.
+
+**[USER_GUIDE.md](USER_GUIDE.md)** - the end-to-end workflows for building, packaging, deploying
+and emulating, written for somebody using the tools rather than changing them.
+
 ## The tools in this repository
 
 Checks that only the meta-repository can run, because they need every project checked out at
@@ -57,7 +64,7 @@ once. See [tools/README.md](../tools/README.md).
 | | |
 |---|---|
 | `check-decisions.sh` | holds every `docs/DECISIONS.md` to §4, against a baseline that can only shrink |
-| `check-links.sh` | resolves every relative link and `#anchor` across all seven repositories |
+| `check-links.sh` | resolves every relative link and `#anchor` across all eight repositories |
 | `check-workflows.sh` | every workflow that touches a project's source begins with the standard preamble |
 | `check-dashes.sh` | the house hyphen style, across the collection |
 | `split-decisions.sh`, `split-doc.sh` | regenerate a project's decision/worklog/backlog index from its per-entry files |

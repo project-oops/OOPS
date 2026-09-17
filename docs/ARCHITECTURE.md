@@ -38,6 +38,12 @@ depends on the collection without anything in the collection depending on it. It
 `bin/oops` anyway, for the reason a consumer is: a change to the SDK that breaks an app
 should fail here, not in a clone somebody makes later.
 
+oops-mesa sits beside oops-sdk the same way. It carries upstream Mesa's radeonsi route onto the
+target to give applications OpenGL 3.3, its `oops-mesa.mk` builds on oops-sdk's runtime, and a GL
+app such as gl-cube pulls its generated preamble in turn. oops-sdk's own `gl.h` is a fixed-function
+instrument by contrast, and the two GLs never link into one title (oops-sdk#D007) - a boundary
+drawn on purpose rather than an accident of layout.
+
 A relative path out of the repository is unusual and worth being explicit about. It works
 under this repository because submodules sit side by side, and it works in the development
 layout because the checkouts are siblings. It does **not** work in a lone clone of obSCEne,

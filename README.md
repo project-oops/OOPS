@@ -28,6 +28,8 @@ flowchart TD
     subgraph Target_Payloads["1. Target Payloads & Hardware Probing"]
         SDK["oops-sdk<br/>(Freestanding C Runtime)"] --> APPS["oops-apps<br/>(Conforming Apps: gl-cube)"]
         SDK --> OBSCENE["obSCEne<br/>(Hardware Conformance Probe)"]
+        SDK --> MESA["oops-mesa<br/>(OpenGL 3.3 over upstream Mesa)"]
+        MESA --> APPS
     end
 
     subgraph Toolchain["2. Toolchain & Remote Management"]
@@ -52,9 +54,9 @@ flowchart TD
 
 ---
 
-## The Seven Repositories at a Glance
+## The Eight Repositories at a Glance
 
-The collection consists of **four primary pillars** and **three supporting repositories**:
+The collection consists of **four primary pillars** and **four supporting repositories**:
 
 | Repository | Focus | Role in THE LOOP | Primary Commands |
 |---|---|---|---|
@@ -65,6 +67,7 @@ The collection consists of **four primary pillars** and **three supporting repos
 | **[oops-sdk](oops-sdk/)** | Freestanding C SDK | Clean-room libc, RDNA2 AGC display/tiler, DualSense input, and audio runtime used by target payloads. | `include $(OOPS_SDK)/oops-sdk.mk` |
 | **[oops-apps](oops-apps/)** | Test Apps & Tracer | Known-source 3D test titles ([`gl-cube`](oops-apps/src/gl-cube)) and passive telemetry [`tracer`](oops-apps/src/tracer/) for capturing commercial game calls & shaders. | `make title`<br/>`./bin/oops-apps check` |
 | **[oops-libs](oops-libs/)** | Shared Rust Libs | Shared infrastructure for host tools: unified logging (`oops-log`), build stamps (`oops-build`), and paths (`oops-paths`). | Path dependency in host tools |
+| **[oops-mesa](oops-mesa/)** | OpenGL Shim | Carries upstream Mesa's radeonsi route onto the target to give apps OpenGL 3.3 Core / GLSL 3.30; its RDNA2 register database is Orbistoun's cited provenance oracle for GPU decode. | `include $(OOPS_MESA)/oops-mesa.mk` |
 
 ---
 
@@ -139,6 +142,7 @@ OOPS/                ← Meta-repository and shared orchestration scripts
   oops-sdk/          ← Submodule: Clean-room freestanding C SDK
   oops-apps/         ← Submodule: Conforming homebrew titles & testbed
   oops-libs/         ← Submodule: Shared host-side Rust crates
+  oops-mesa/         ← Submodule: OpenGL 3.3 shim over upstream Mesa
   docs/              ← Ecosystem conventions, architecture, THE LOOP
   bin/oops           ← Master CLI dispatcher for the entire collection
 ```

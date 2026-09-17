@@ -1,10 +1,10 @@
-# Publishing the four, and wiring up the submodules
+# Publishing the eight, and wiring up the submodules
 
 **Done.** Every repository has an initial commit, a remote and a public `main`, and every one is
 a submodule of this one. The first six were published on 2026-09-01; oops-apps was registered on
-2026-09-07 and pushed shortly after, so a fresh `--recurse-submodules` clone now completes. What
-follows is what was done and why, plus the steps still
-outstanding.
+2026-09-07 and pushed shortly after, and oops-mesa - the newest member - was registered and pushed
+after that, so a fresh `--recurse-submodules` clone now completes. What follows is what was done
+and why, plus the steps still outstanding.
 
 ## Where things are
 
@@ -17,6 +17,7 @@ https://github.com/project-oops/SELFish      submodule: selfish
 https://github.com/project-oops/oops-libs    submodule: oops-libs
 https://github.com/project-oops/oops-sdk     submodule: oops-sdk
 https://github.com/project-oops/oops-apps    submodule: oops-apps
+https://github.com/project-oops/oops-mesa    submodule: oops-mesa
 ```
 
 The layout is not cosmetic. obSCEne finds SELFish by relative path, so
@@ -59,12 +60,12 @@ URLs, so they were correct the moment the remotes existed.
 is wrong, and it has not been done.
 
 **Done: oops-apps is pushed.** It had its first commit, its remote and an entry in `.gitmodules`,
-and its `main` is now on the remote, so a fresh `--recurse-submodules` clone gets all seven rather
-than stopping on the seventh.
+and its `main` is now on the remote; with oops-mesa likewise registered and pushed, a fresh
+`--recurse-submodules` clone gets all eight rather than stopping on a missing submodule.
 
 ## What a reader gets either way
 
-**Cloning this repository** gets all four, arranged so obSCEne builds.
+**Cloning this repository** gets all eight, arranged so obSCEne builds.
 
 ```bash
 git clone --recurse-submodules https://github.com/project-oops/OOPS
@@ -78,7 +79,7 @@ is worth stating rather than leaving somebody to discover from a build error.
 ## Keeping it current
 
 A submodule pins a revision, so this repository does not follow the projects - it records a
-set of four revisions that were known to work together. Updating is deliberate:
+set of eight revisions that were known to work together. Updating is deliberate:
 
 ```bash
 git submodule update --remote

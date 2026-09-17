@@ -2,7 +2,7 @@
 
 Top-level instructions and constraints for coding agents working across the OOPS collection.
 
-**Read [the OOPS conventions](docs/CONVENTIONS.md) first.** Provenance, naming, decision logs, worklogs, and gates are shared across [Orbistoun](orbistoun/), [obSCEne](obscene/), [Prosperous](prosperous/), [SELFish](selfish/), [oops-sdk](oops-sdk/), and [oops-apps](oops-apps/), and are stated once there.
+**Read [the OOPS conventions](docs/CONVENTIONS.md) first.** Provenance, naming, decision logs, worklogs, and gates are shared across [Orbistoun](orbistoun/), [obSCEne](obscene/), [Prosperous](prosperous/), [SELFish](selfish/), [oops-libs](oops-libs/), [oops-sdk](oops-sdk/), [oops-apps](oops-apps/), and [oops-mesa](oops-mesa/), and are stated once there.
 
 ---
 

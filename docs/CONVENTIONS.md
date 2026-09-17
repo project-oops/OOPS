@@ -122,7 +122,7 @@ renaming them stops the tools working. They stay in code. Prose describing them 
 have to repeat them.
 
 The project names themselves are the other exception, and they are puns on this vocabulary -
-see [the naming section in the README](../README.md#the-seven-repositories-at-a-glance). Write them stylised:
+see [the naming section in the README](../README.md#the-eight-repositories-at-a-glance). Write them stylised:
 **Orbistoun**, **obSCEne**, **Prosperous**, **SELFish**.
 
 ### The words for our own layers
@@ -151,7 +151,7 @@ specifically. A sentence that has to cover both says "loader", or names them bot
 ### The four axes of a build and a run
 
 Four things vary independently, and the collection kept collapsing them into one word. They are
-named here once so that seven repositories, a CLI, a set of release artifacts and a conformance
+named here once so that eight repositories, a CLI, a set of release artifacts and a conformance
 matrix all use the same four.
 
 | Axis | Values | Whose fact it is | Where it lives |
