@@ -23,5 +23,5 @@ Anthropic models (Claude 3.5 Sonnet, Claude 3.7 Sonnet, Claude Opus 4/5) are sub
 
 ### B. Command Execution & Environment
 - **Non-Interactive Execution**: Always run CLI commands non-interactively with pagers disabled (`PAGER=cat`).
-- **Platform Separation**: On Windows, target C cross-compilation (`obscene`, `oops-sdk`, `oops-apps`, `oops-mesa`) must run under WSL (`oops-builder`) or Docker (`silkeh/clang:18`), while remote hardware management (`pros.exe`) runs natively on Windows.
+- **Platform Separation**: On Windows, target C cross-compilation (`obscene`, `oops-sdk`, `oops-apps`, `oops-mesa`) must run under Docker (`silkeh/clang:21`, authoritative) or WSL (`oops-builder`, permitted while it agrees), while remote hardware management (`pros.exe`) runs natively on Windows. The pin is checked by each repository's `toolchain.mk` and across the collection by [`tools/check-toolchain.sh`](tools/check-toolchain.sh); see [`AGENTS.md`](AGENTS.md) and `oops-mesa#D013`.
 - **Subproject Scope**: When working inside a specific submodule ([`orbistoun/`](orbistoun/CLAUDE.md), [`obscene/`](obscene/CLAUDE.md), [`prosperous/`](prosperous/CLAUDE.md), [`selfish/`](selfish/CLAUDE.md)), consult that directory's own `CLAUDE.md` for project-specific constraints. Never duplicate or bypass master rules in [`AGENTS.md`](AGENTS.md).

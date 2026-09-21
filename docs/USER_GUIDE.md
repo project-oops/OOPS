@@ -30,8 +30,13 @@ OOPS uses a dual-environment toolchain:
 ### Required Software:
 1. **Rust Toolchain**: Rust 1.80+ (`rustup default stable`).
 2. **Container or WSL for Target Cross-Compilation**:
-   - **Windows**: Use WSL2 (with Ubuntu / Debian) or Docker Desktop (`silkeh/clang:18`).
-   - **Linux**: Clang 18+ and `lld` installed natively.
+   - **Windows**: Docker Desktop (`silkeh/clang:21`) is the authoritative runner; WSL2 (the
+     `oops-builder` distribution) is permitted and must carry the same clang major.
+   - **Linux**: Clang 21 and `lld` installed natively.
+
+   The major version is not advisory. Each repository's `toolchain.mk` refuses to compile
+   against a different one, and `tools/check-toolchain.sh` fails when the repositories disagree
+   with each other. See [`AGENTS.md`](../AGENTS.md) for why the container is the authority.
 
 ---
 

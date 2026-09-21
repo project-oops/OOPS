@@ -30,9 +30,36 @@ The OOPS collection builds and maintains its own toolchain for every layer of th
 
 Per machine global instructions:
 1. **Already installed?** Use it (check `PATH` / WSL before assuming missing).
-2. **Run it in a container.** WSL `oops-builder` and Docker (`silkeh/clang:18`) are the standard runners for cross-compilation and testing.
+2. **Run it in a container.** WSL `oops-builder` and Docker (`silkeh/clang:21`) are the standard runners for cross-compilation and testing.
 3. **Portable install to `X:\toolchains\<name>`** when a container genuinely will not do.
 4. **Never perform quiet machine-wide system installs.**
+
+### The compiler is clang 21, and the pin is enforced rather than described
+
+**`silkeh/clang:21` is the authoritative runner.** WSL `oops-builder` is a permitted second
+runner because it is much faster over a Windows mount, and it is correct exactly while it
+agrees with the container.
+
+The container is authoritative because a tag is a pin and an apt candidate is not: the compiler
+in `oops-builder` arrived as Ubuntu's `clang` package, whose candidate moves with the
+distribution's index, while an image tag resolves to the same digest on any machine. Both
+report `21.1.8` today, and only one of them promises to tomorrow.
+
+Until 2026-09-21 this section named clang 18 and no build enforced it, so the same source
+compiled with clang 21 under WSL and clang 18 under Docker depending on where you stood. That
+split is what `oops-mesa#D013` settles. Three things now hold it:
+
+- `<repo>/toolchain.mk` refuses to compile against the wrong major, in `obscene` and `oops-apps`
+- `oops-mesa/toolchain/Dockerfile`'s `FROM` tag, which is that repository's runner and so its pin
+- `tools/check-toolchain.sh`, which fails when the numbers disagree or a repository declares none
+
+**Do not route around a toolchain error by passing `CC`.** The variable is there for a compiler
+cache, and the split between runners is the defect the guard was written for.
+
+**`orbistoun` is deliberately not on clang 21.** Its shader fixtures are reproduced by a
+*reference* toolchain, where the version decides the bytes rather than merely compiling them, and
+it stays pinned to LLVM 18 (`orbistoun#D681`). That is a different axis from the build compiler
+and moving one does not move the other.
 
 ---
 
@@ -47,7 +74,12 @@ Per machine global instructions:
 ## 4. Hardware Safety (Target Testing)
 
 - **Fail-safe GPU rasterization:** All rendering code must handle submit errors or fence timeouts gracefully by failing safe to CPU rasterization, logging to `klog`, and never hanging the hardware ring.
-- **Never make unapproved git commits:** Keep working trees clean, verify with automated test suites (`make test` in `oops-sdk`, `make check` in `oops-apps`), and report findings clearly.
+- **Never make unapproved git commits:** Keep working trees clean, verify with automated test suites (`make test` in `oops-sdk`, `./bin/oops-apps check` in `oops-apps`), and report findings clearly.
+
+  `oops-apps` has **no root `make check`** - the verb is what runs the per-app gate over every
+  app, the same shape as `./bin/oops-mesa check` and the rest. This line said `make check` until
+  2026-09-21 and it had never worked; `make: *** No rule to make target 'check'` is what a
+  reader following it got.
 
 ---
 
