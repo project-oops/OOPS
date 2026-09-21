@@ -1,6 +1,6 @@
 # Glossary
 
-The vocabulary these four projects are written in, for somebody who has not done systems or
+The vocabulary these projects are written in, for somebody who has not done systems or
 emulator work before.
 
 It is in two halves, and they are not equally hard. Most of what looks like jargon is

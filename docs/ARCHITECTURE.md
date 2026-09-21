@@ -40,7 +40,7 @@ should fail here, not in a clone somebody makes later.
 
 oops-mesa sits beside oops-sdk the same way. It carries upstream Mesa's radeonsi route onto the
 target to give applications OpenGL 3.3, its `oops-mesa.mk` builds on oops-sdk's runtime, and a GL
-app such as gl-cube pulls its generated preamble in turn. oops-sdk's own `gl.h` is a fixed-function
+app such as gl1-cube pulls its generated preamble in turn. oops-sdk's own `gl.h` is a fixed-function
 instrument by contrast, and the two GLs never link into one title (oops-sdk#D007) - a boundary
 drawn on purpose rather than an accident of layout.
 
@@ -148,11 +148,11 @@ because a licence asserted over published code is much harder to revise than one
 a directory. Whoever resolves it should write down which argument won, and in which project's
 log.
 
-## Four projects, one working copy
+## Separate repositories, one working copy
 
 The split is about **distribution and identity, not about source-level independence**.
 
-Development happens in this repository, where all four are present and build against each
+Development happens in this repository, where all eight are present and build against each
 other. The separate repositories exist because each project has its own audience, its own
 releases and its own issue tracker: obSCEne is a conformance suite somebody might run
 against a different emulator entirely, Prosperous is the hardware instrument whoever wrote the
@@ -160,13 +160,13 @@ payload, SELFish is a format library worth depending on from outside. Those are 
 different conversations, and one repository would make them one.
 
 **So a cross-repository dependency is not a cost to be minimised.** The development layout
-always has all four checked out side by side; obSCEne reaching into SELFish costs nothing
+always has all eight checked out side by side; obSCEne reaching into SELFish costs nothing
 structural, and neither would Orbistoun. What each repository owes its own audience is a
 **release** - a binary, or a versioned library dependency - not a checkout that builds in
 isolation.
 
 That inverts what would otherwise be the obvious worry. The question is not "can this be
-cloned alone" but "does this ship something on its own", and all four do.
+cloned alone" but "does this ship something on its own", and all four pillars do.
 
 ## Citing a decision in another project
 
@@ -183,7 +183,7 @@ selfish#D049          not     D049
 ```
 
 The same applies to project names that are nearly each other. `prosperity` is a third-party
-project and `prosperous` is one of these four; they differ by one letter and have already
+project and `prosperous` is one of ours; they differ by one letter and have already
 appeared in the same table with nothing marking which is which.
 
 ## Conventions

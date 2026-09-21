@@ -104,7 +104,7 @@ subject was, which is the failure the paragraph above claims this convention doe
 
 **Prospero** and **Orbis** are the platform's own generation names, not brands or model numbers,
 and they are the precise term where "hardware" was a vague one. They are already load-bearing here:
-two of the four projects are puns on them. Use **Prospero-generation hardware** on first mention
+two of the four pillars are puns on them. Use **Prospero-generation hardware** on first mention
 and "the hardware" after, rather than repeating it.
 
 Where a sentence wants to be exact rather than short, the underlying facts are all nameable

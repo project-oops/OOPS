@@ -1,15 +1,19 @@
 # OOPS documentation
 
-The rules and the arrangement the four projects share. Each project states only what it
+The rules and the arrangement the eight repositories share. Each project states only what it
 *adds* to these, or where it deliberately differs and why - so nothing here is repeated next
 door, and nothing next door contradicts it silently.
 
 Looking for a project rather than the collection? [orbistoun](https://github.com/project-oops/Orbistoun),
 [obSCEne](https://github.com/project-oops/obSCEne),
 [Prosperous](https://github.com/project-oops/Prosperous),
-[SELFish](https://github.com/project-oops/SELFish) each carry their own `docs/`. The
+[SELFish](https://github.com/project-oops/SELFish),
+[oops-sdk](https://github.com/project-oops/oops-sdk),
+[oops-apps](https://github.com/project-oops/oops-apps),
+[oops-libs](https://github.com/project-oops/oops-libs),
+[oops-mesa](https://github.com/project-oops/oops-mesa) each carry their own `docs/`. The
 [root README](../README.md) has the shape of the whole thing, including the oracle problem
-that explains why there are four projects instead of one.
+that explains why there are separate projects instead of one.
 
 ## The seven documents
 

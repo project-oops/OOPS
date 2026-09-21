@@ -50,7 +50,7 @@ resolved to nothing.
 
 ## What is still outstanding
 
-**The four projects reference each other by local path.** `<OOPS>/obscene`, `../selfish`,
+**The projects reference each other by local path.** `<OOPS>/obscene`, `../selfish`,
 `<OOPS>/prosperous` - none of those means anything to a reader with a clone. Converting them to
 the published URLs is a per-project job and the largest single documentation task the collection
 has. [README.md](../README.md) and [ARCHITECTURE.md](ARCHITECTURE.md) already used the published

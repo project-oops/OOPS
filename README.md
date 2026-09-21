@@ -26,7 +26,7 @@ Every project in OOPS feeds into and verifies its siblings:
 ```mermaid
 flowchart TD
     subgraph Target_Payloads["1. Target Payloads & Hardware Probing"]
-        SDK["oops-sdk<br/>(Freestanding C Runtime)"] --> APPS["oops-apps<br/>(Conforming Apps: gl-cube)"]
+        SDK["oops-sdk<br/>(Freestanding C Runtime)"] --> APPS["oops-apps<br/>(Conforming Apps: gl1-cube)"]
         SDK --> OBSCENE["obSCEne<br/>(Hardware Conformance Probe)"]
         SDK --> MESA["oops-mesa<br/>(OpenGL 3.3 over upstream Mesa)"]
         MESA --> APPS
@@ -65,8 +65,8 @@ The collection consists of **four primary pillars** and **four supporting reposi
 | **[Prosperous](prosperous/)** | Target Management | Remotely registers consoles, deploys title packages over LAN, launches execution, and streams `klog`. | `pros check`<br/>`pros restore <dir> <dst>`<br/>`pros launch <id>` |
 | **[SELFish](selfish/)** | File Formats | Clean-room compiler and reader for signed executables (`eboot.bin`), title metadata (`param.json`, `keystone`), and `.pkg` files. | `selfish --format title`<br/>`selfish elf <file>` |
 | **[oops-sdk](oops-sdk/)** | Freestanding C SDK | Clean-room libc, RDNA2 AGC display/tiler, DualSense input, and audio runtime used by target payloads. | `include $(OOPS_SDK)/oops-sdk.mk` |
-| **[oops-apps](oops-apps/)** | Test Apps & Tracer | Known-source 3D test titles ([`gl-cube`](oops-apps/src/gl-cube)) and passive telemetry [`tracer`](oops-apps/src/tracer/) for capturing commercial game calls & shaders. | `make title`<br/>`./bin/oops-apps check` |
-| **[oops-libs](oops-libs/)** | Shared Rust Libs | Shared infrastructure for host tools: unified logging (`oops-log`), build stamps (`oops-build`), and paths (`oops-paths`). | Path dependency in host tools |
+| **[oops-apps](oops-apps/)** | Test Apps & Tracer | Known-source 3D test titles ([`gl1-cube`](oops-apps/src/oops-gl/gl1-cube)) and passive telemetry [`tracer`](oops-apps/src/oops-payloads/tracer/) for capturing commercial game calls & shaders. | `make title`<br/>`./bin/oops-apps check` |
+| **[oops-libs](oops-libs/)** | Shared Rust Libs | Shared infrastructure for host tools: unified logging (`oops-log`), build stamps (`oops-build`), paths (`oops-paths`), and in-app documentation (`oops-docs`). | Path dependency in host tools |
 | **[oops-mesa](oops-mesa/)** | OpenGL Shim | Carries upstream Mesa's radeonsi route onto the target to give apps OpenGL 3.3 Core / GLSL 3.30; its RDNA2 register database is Orbistoun's cited provenance oracle for GPU decode. | `include $(OOPS_MESA)/oops-mesa.mk` |
 
 ---
@@ -96,10 +96,10 @@ On Windows, `bin/oops setup` installs the lightweight `oops-builder` WSL distrib
 
 #### A. Build a 3D Test Application
 ```bash
-cd oops-apps/src/gl-cube
+cd oops-apps/src/oops-gl/gl1-cube
 make title
 ```
-This compiles `gl-cube.elf` using `oops-sdk` and automatically packages a complete title directory (`build/title/GLCB00001/`) using `selfish` and `obscene-tool`.
+This compiles `gl1-cube.elf` using `oops-sdk` and automatically packages a complete title directory (`build/title/GLCB00001/`) using `selfish` and `obscene-tool`.
 
 #### B. Deploy and Run on Real Hardware
 ```bash
@@ -107,7 +107,7 @@ This compiles `gl-cube.elf` using `oops-sdk` and automatically packages a comple
 pros.exe check
 
 # Deploy title to /data/homebrew/ scan root and launch
-pros.exe restore oops-apps\src\gl-cube\build\title\GLCB00001 /data/homebrew/GLCB00001
+pros.exe restore oops-apps\src\oops-gl\gl1-cube\build\title\GLCB00001 /data/homebrew/GLCB00001
 pros.exe launch GLCB00001
 
 # Stream live console kernel log

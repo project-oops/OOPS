@@ -17,7 +17,7 @@ Instead of operating in isolation, every repository in the OOPS collection feeds
 ```mermaid
 flowchart TD
     subgraph S1["Stage 1: Target Payloads"]
-        SDK["oops-sdk<br/>(Freestanding C Runtime)"] --> APPS["oops-apps<br/>(Conforming Apps: gl-cube, wipeout)"]
+        SDK["oops-sdk<br/>(Freestanding C Runtime)"] --> APPS["oops-apps<br/>(Conforming Apps: gl1-cube, mesa-cube)"]
         SDK --> OBSCENE["obSCEne<br/>(Hardware Conformance Probe)"]
         SDK --> MESA["oops-mesa<br/>(OpenGL 3.3 over upstream Mesa)"]
         MESA --> APPS
@@ -61,7 +61,7 @@ flowchart TD
 
 ### Stage 1: Build the Payload (`oops-sdk` & `oops-apps`)
 - **[oops-sdk](../oops-sdk/)**: A 100% clean-room, freestanding C runtime (`-ffreestanding -nostdlib`). Implements direct AGC GPU buffer allocations, hardware tile swizzling, DualSense input polling, audio PCM streaming, and POSIX threading stubs without touching vendor SDK headers.
-- **[oops-apps](../oops-apps/)**: Known-source applications built on `oops-sdk` (e.g. [`gl-cube`](../oops-apps/src/gl-cube), [`wipeout`](../oops-apps/src/wipeout), [`seashell`](../oops-apps/src/seashell)). Because we write the source code, any rendering artifact or crash has an unambiguous ground-truth expectation.
+- **[oops-apps](../oops-apps/)**: Known-source applications built on `oops-sdk` (e.g. [`gl1-cube`](../oops-apps/src/oops-gl/gl1-cube), [`mesa-cube`](../oops-apps/src/oops-mesa/mesa-cube), [`seashell`](../oops-apps/src/oops-utilities/seashell)). Because we write the source code, any rendering artifact or crash has an unambiguous ground-truth expectation.
 
 ### Stage 2: Package with Conforming Formats (`SELFish`)
 - **[SELFish](../selfish/)**: Wraps compiled `.elf` binaries into signed-executable containers (`eboot.bin`), structures title directories (`--format title`), synthesizes conforming metadata (`param.json`, fake-signed `keystone`, `nptitle.dat`), and packages installable files (`.pkg`).
@@ -73,7 +73,7 @@ flowchart TD
 
 ### Stage 4: Silicon Ground Truth & Probing (`obSCEne` & `tracer`)
 - **[obSCEne](../obscene/) (Active Probing)**: The hardware conformance probe. Executes 400+ targeted checks one-by-one directly on PS5 silicon to measure exact system call return codes, struct sizes, alignment boundaries, and RDNA2 GPU packet encodings.
-- **[tracer](../oops-apps/src/tracer/) (Passive Observation)**: While obSCEne actively probes controlled inputs, `tracer` hooks running commercial games in-process on real hardware. It records actual call sequences, valid constant spaces, out-parameter buffer diffs, submitted PM4 DCB command buffers, and bound RDNA2 shader binaries without modifying game code. Decoded traces feed directly into `orbistoun-corpus` and `orbistoun-gpu`.
+- **[tracer](../oops-apps/src/oops-payloads/tracer/) (Passive Observation)**: While obSCEne actively probes controlled inputs, `tracer` hooks running commercial games in-process on real hardware. It records actual call sequences, valid constant spaces, out-parameter buffer diffs, submitted PM4 DCB command buffers, and bound RDNA2 shader binaries without modifying game code. Decoded traces feed directly into `orbistoun-corpus` and `orbistoun-gpu`.
 
 #### Why Three obSCEne Target Builds? (`payload`, `eboot`, `pkg`)
 On real console firmware, **privileges, sandboxing, and library resolution change depending on how code is launched**. Testing all three launch modes (`./scripts/sweep.sh`) is essential to map the operating system:
@@ -123,7 +123,7 @@ The OOPS collection is checked out as side-by-side sibling repositories under a 
 | `obscene` | `../../oops-libs/crates/*` | Shared build stamp, logging, and paths |
 | `oops-apps` | `../../oops-sdk` | Shared application Makefile (`app.mk`) and libc stubs |
 | `oops-apps` | `../../selfish` | Automated title packaging (`make title`) |
-| `oops-apps` | `../../oops-mesa` | OpenGL 3.3 for apps that draw (gl-cube preamble) |
+| `oops-apps` | `../../oops-mesa` | OpenGL 3.3 for apps that draw (gl1-cube preamble) |
 | `oops-mesa` | `../../oops-sdk` | Freestanding C runtime under the GL stack |
 | `orbistoun` | `../../oops-libs/crates/*` | Shared build metadata, paths, and logging |
 | `prosperous` | `../../selfish/crates/selfish-title` | Title metadata and SFO parsing |
@@ -139,7 +139,7 @@ pros.exe check
 
 ### 2. Build and Package a Test Title
 ```bash
-cd <OOPS>\oops-apps\src\gl-cube
+cd <OOPS>\oops-apps\src\oops-gl\gl1-cube
 make title
 ```
 

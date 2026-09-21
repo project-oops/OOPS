@@ -119,7 +119,7 @@ orbistoun    ← oops-libs, and selfish (dev-only, for the D653 differential tes
 prosperous   ← oops-libs, and selfish (selfish-title, the param.sfo reader)
 obscene      ← selfish, prosperous, oops-libs, and oops-sdk (a C/make edge, not a Cargo one)
 oops-apps    ← oops-sdk            (every app's Makefile includes ../../oops-sdk/oops-sdk.mk;
-                                    a GL app such as gl-cube also pulls ../oops-mesa)
+                                    a GL app such as gl1-cube also pulls ../oops-mesa)
 oops-mesa    ← oops-sdk            (a C/make edge: upstream Mesa's GL on the SDK runtime)
 ```
 

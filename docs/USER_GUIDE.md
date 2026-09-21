@@ -78,11 +78,11 @@ Binaries will land in `target/release/` (`selfish.exe`, `pros.exe`, `orbistoun.e
 1. **Compile the App Payload**:
    In your WSL terminal or Linux shell, navigate to an app in `oops-apps`:
    ```bash
-   cd oops-apps/src/gl-cube
+   cd oops-apps/src/oops-gl/gl1-cube
    make title
    ```
    This automatically:
-   - Compiles freestanding C source into `gl-cube.elf`.
+   - Compiles freestanding C source into `gl1-cube.elf`.
    - Compiles the companion `libc.prx` module.
    - Calls `selfish --format title` to layout `build/title/GLCB00001/` with generated `param.json`, `icon0.png`, `keystone`, `nptitle.dat`, and `pfs-version.dat`.
 
