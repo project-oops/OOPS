@@ -56,24 +56,29 @@ trap 'rm -f "$records"' EXIT
 
 emit_media() {
     # Copy one app's presentable media into the site and print a JSON array of {type,src}.
-    # Video first (it is the liveliest thing an app has), then stills. Globs, so the set is
-    # whatever the app ships - nothing here names a file.
+    # Globs, so the set is whatever the app ships - nothing here names a file.
     local app="$1" dir="$2" destrel="media/$1" dest="$OUT/media/$1"
     local -a items=()
-    local f base type
+    local f base
     mkdir -p "$dest"
-    for f in "$dir"/assets/demo.webm "$dir"/assets/demo.mp4 \
-             "$dir"/assets/demo.gif \
-             "$dir"/assets/screenshot*.png "$dir"/assets/screenshot*.jpg \
+    # The demo, in **one** format only, video preferred. An app that ships both `demo.webm` and
+    # `demo.gif` is shipping the same clip twice, and showing both is the duplicate a reader
+    # notices.
+    for f in "$dir"/assets/demo.webm "$dir"/assets/demo.mp4 "$dir"/assets/demo.gif; do
+        [ -f "$f" ] || continue
+        base="$(basename "$f")"
+        case "$base" in *.webm|*.mp4) local t=video ;; *) local t=image ;; esac
+        cp "$f" "$dest/$base"
+        items+=("$(jq -n --arg type "$t" --arg src "$destrel/$base" '{type:$type,src:$src}')")
+        break
+    done
+    # Then the stills.
+    for f in "$dir"/assets/screenshot*.png "$dir"/assets/screenshot*.jpg \
              "$dir"/docs/screenshots/*.png "$dir"/docs/screenshots/*.jpg "$dir"/docs/screenshots/*.gif; do
         [ -f "$f" ] || continue
         base="$(basename "$f")"
-        case "$base" in
-            *.webm|*.mp4) type=video ;;
-            *)            type=image ;;
-        esac
         cp "$f" "$dest/$base"
-        items+=("$(jq -n --arg type "$type" --arg src "$destrel/$base" '{type:$type,src:$src}')")
+        items+=("$(jq -n --arg src "$destrel/$base" '{type:"image",src:$src}')")
     done
     if [ "${#items[@]}" -eq 0 ]; then
         echo "[]"
@@ -96,18 +101,14 @@ emit_icon() {
 }
 
 render_desc() {
-    # The README as an HTML fragment, minus its own H1 and the centred logo block, because the
-    # panel already shows the app's name and icon above it.
-    local readme="$1"
+    # The README as an HTML fragment of prose - the readme-prose.lua filter drops the title, the
+    # images (the card's gallery already shows them) and any heading left empty, and repoints
+    # relative links at github. `appdir` is the app's path inside the repo, for those links.
+    local readme="$1" appdir="$2"
     [ -f "$readme" ] || { echo ""; return 0; }
-    pandoc -f gfm -t html "$readme" 2>/dev/null |
-        awk '
-            !dropped_h1 && /<h1/ { inh1=1 }
-            inh1 { if (/<\/h1>/) { inh1=0; dropped_h1=1 } ; next }
-            !dropped_img && /<p[^>]*>[[:space:]]*<img/ { inimg=1 }
-            inimg { if (/<\/p>/) { inimg=0; dropped_img=1 } ; next }
-            { print }
-        '
+    pandoc -f gfm -t html \
+        -M "appdir=$appdir" -M "repo=project-oops/oops-apps" \
+        --lua-filter="$TEMPLATE_DIR/readme-prose.lua" "$readme" 2>/dev/null
 }
 
 # A title-shipping app's kind, for grouping. `KIND` in app.env wins; otherwise it is inferred
@@ -163,7 +164,7 @@ while IFS= read -r app; do
 
     icon="$(emit_icon "$app" "$dir")"
     media="$(emit_media "$app" "$dir")"
-    desc="$(render_desc "$dir/README.md")"
+    desc="$(render_desc "$dir/README.md" "${dir#"$SRC"/}")"
 
     jq -n \
         --arg name "$app" \
