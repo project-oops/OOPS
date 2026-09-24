@@ -131,6 +131,17 @@ infer_kind() {
 # Whitespace-separated word membership: does FORMATS contain `title`?
 has_word() { case " $1 " in *" $2 "*) return 0 ;; *) return 1 ;; esac; }
 
+# Read one `KEY=value` field from an app.env. **Parsed, not sourced**: `FORMATS=elf eboot title`
+# is a perfectly good make value but invalid shell (sourcing it sets FORMATS=elf and runs
+# `eboot title`), which silently dropped every multi-format app from the index until this was a
+# parse. Strips one layer of surrounding double quotes; ignores comment lines.
+ae_get() {
+    local v
+    v="$(grep -m1 -E "^$2=" "$1" 2>/dev/null | cut -d= -f2-)"
+    v="${v%\"}"; v="${v#\"}"
+    printf '%s' "$v"
+}
+
 while IFS= read -r app; do
     [ -n "$app" ] || continue
     mk="$(find "$SRC/src" -maxdepth 3 -name Makefile -path "*/$app/Makefile" 2>/dev/null | head -1)"
@@ -139,24 +150,16 @@ while IFS= read -r app; do
     env="$dir/app.env"
     [ -f "$env" ] || continue
 
-    eval "$(
-        # shellcheck disable=SC1090
-        ( set -a; . "$env" >/dev/null 2>&1; set +a
-          for k in TITLE_NAME APP_SUBTITLE TITLE_CATEGORY TITLE_VERSION KIND FORMATS; do
-              printf '%s=%q\n' "AE_$k" "$(eval "printf '%s' \"\${$k:-}\"")"
-          done )
-    )"
-
     # Default FORMATS is `elf` (common/app.mk); an app appears only if it ships a title.
-    formats="${AE_FORMATS:-elf}"
+    formats="$(ae_get "$env" FORMATS)"; formats="${formats:-elf}"
     has_word "$formats" title || continue
 
     group="$(basename "$(dirname "$dir")")"
-    kind="${AE_KIND:-$(infer_kind "$group" "$app")}"
+    kind="$(ae_get "$env" KIND)"; kind="${kind:-$(infer_kind "$group" "$app")}"
 
-    title="${AE_TITLE_NAME:-$app}"
-    subtitle="${AE_APP_SUBTITLE:-}"
-    version="${AE_TITLE_VERSION:-}"
+    title="$(ae_get "$env" TITLE_NAME)"; title="${title:-$app}"
+    subtitle="$(ae_get "$env" APP_SUBTITLE)"
+    version="$(ae_get "$env" TITLE_VERSION)"
 
     icon="$(emit_icon "$app" "$dir")"
     media="$(emit_media "$app" "$dir")"
