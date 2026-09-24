@@ -191,8 +191,9 @@ done < <("$SRC/bin/oops-apps" list)
 # release (matched by the `<app>-` filename prefix), so nothing here goes stale.
 jq -s 'sort_by(.title)' "$records" > "$OUT/apps.json"
 
-cp "$TEMPLATE_DIR/index.html" "$OUT/index.html"
-cp "$TEMPLATE_DIR/index.css"  "$OUT/index.css"
-cp "$TEMPLATE_DIR/index.js"   "$OUT/index.js"
+cp "$TEMPLATE_DIR/index.html"  "$OUT/index.html"
+cp "$TEMPLATE_DIR/index.css"   "$OUT/index.css"
+cp "$TEMPLATE_DIR/index.js"    "$OUT/index.js"
+cp "$TEMPLATE_DIR/favicon.svg" "$OUT/favicon.svg"   # the OOPSy-daisy daisy, as the site icon
 
 echo "build-apps-index: $(jq -s 'length' "$records") apps -> $OUT"
