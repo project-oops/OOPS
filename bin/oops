@@ -351,13 +351,20 @@ git_proxy() {
 # but `oops check` runs `cargo test` and `clippy --all-targets`, which do, so
 # bootstrap fetches it. oops-libs depends on nothing, which is what makes it the
 # safe common leaf.
+#
+# oops-apps grew its oops-mesa edge the same way the table's comment above describes.
+# Four apps live under `src/oops-mesa/` and set `USE_MESA=1`, and `common/app.mk:114`
+# refuses without the sibling - so `oops-apps build` stopped dead at `mesa-cube` and
+# four of the release's matrix cells failed every run. The edge is real and was simply
+# missing; oops-mesa itself builds against oops-sdk, which is why it carries that.
 deps_for() {
     case "$1" in
         obscene)    echo "selfish prosperous oops-libs oops-sdk" ;;
         orbistoun)  echo "oops-libs selfish" ;;
         prosperous) echo "oops-libs selfish" ;;
         selfish)    echo "oops-libs" ;;
-        oops-apps)  echo "oops-sdk selfish" ;;
+        oops-apps)  echo "oops-sdk selfish oops-mesa" ;;
+        oops-mesa)  echo "oops-sdk" ;;
         *)          echo "" ;;
     esac
 }
@@ -391,6 +398,7 @@ repo_name() {
         oops-libs)  echo "oops-libs" ;;
         oops-sdk)   echo "oops-sdk" ;;
         oops-apps)  echo "oops-apps" ;;
+        oops-mesa)  echo "oops-mesa" ;;
         *) return 1 ;;
     esac
 }
