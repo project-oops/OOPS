@@ -5,165 +5,88 @@
 
 # OOPS
 
-**The Clean-Room Toolchain, Hardware Oracle, and Emulation Platform.**
+**Run console software on an ordinary PC — from a codebase that can be shared.**
 
-OOPS (**O**rbistoun, **o**bSCEne, **P**rosperous, **S**ELFish) is an open-source, mathematically grounded platform stack for 8th and 9th generation console software (Orbis and Prospero). It combines an x86-64 native emulator, a live silicon hardware probe, a remote target management tool, and platform file format compilers.
+OOPS (**O**rbistoun, **o**bSCEne, **P**rosperous, **S**ELFish) is an open toolchain and
+emulation platform for the Orbis and Prospero consoles. It builds native homebrew, packages it
+into the platform's own file formats, runs it on real hardware or in an emulator, and uses the
+difference between the two to work out how the platform behaves.
 
 Site: **[project-oops.github.io/OOPS](https://project-oops.github.io/OOPS/)**
 
-| 📖 **[User Guide & Getting Started](docs/USER_GUIDE.md)** | ⚙️ **[Technical Architecture Reference (THE LOOP)](docs/THE_LOOP.md)** |
+| 📖 **[User Guide & Getting Started](docs/USER_GUIDE.md)** | ⚙️ **[How it fits together (THE LOOP)](docs/THE_LOOP.md)** |
 | :--- | :--- |
-| *End-user workflows, building tools, deploying to PS5, and testing.* | *Closed-loop oracle, clean-room provenance, and deep architecture.* |
+| *Install the tools, build a title, and run it on hardware or in the emulator.* | *The closed feedback loop the projects form, end to end.* |
 
----
+## The loop
 
-## The Core Concept: THE LOOP
-
-Unlike traditional homebrew or emulation efforts that develop in fragmented silos—often relying on leaked vendor SDKs, unverified guesses, or fragile per-game emulator hacks—**OOPS is designed as an interconnected, closed-loop feedback engine.**
-
-Every project in OOPS feeds into and verifies its siblings:
+Every project checks its siblings. An application whose source we wrote runs two ways — on real
+silicon and in the emulator — and where the two disagree is exactly where there is something to
+learn.
 
 ```mermaid
-flowchart TD
-    subgraph Target_Payloads["1. Target Payloads & Hardware Probing"]
-        SDK["oops-sdk<br/>(Freestanding C Runtime)"] --> APPS["oops-apps<br/>(Conforming Apps: gl1-cube)"]
-        SDK --> OBSCENE["obSCEne<br/>(Hardware Conformance Probe)"]
-        SDK --> MESA["oops-mesa<br/>(OpenGL 3.3 over upstream Mesa)"]
-        MESA --> APPS
-    end
-
-    subgraph Toolchain["2. Toolchain & Remote Management"]
-        APPS --> SELFISH["SELFish<br/>(Packaging: ELF -> eboot / title / pkg)"]
-        OBSCENE --> SELFISH
-        SELFISH --> PROS["Prosperous (pros)<br/>(Target Bridge & Log Streamer)"]
-        PROS --> PS5["Physical PS5 Target (192.168.1.211)<br/>(Silicon Ground Truth)"]
-    end
-
-    subgraph Emulation_Loop["3. Emulation & Closed-Loop Oracle"]
-        PS5 -- "Telemetry (klog)" --> AGENT["Agent / Developer<br/>(Translation Glue)"]
-        APPS -- "Executable" --> ORB["Orbistoun<br/>(x86-64 Native HLE Emulator)"]
-        ORB -- "Crash / Missing Struct" --> LOOP["THE LOOP (orbistoun-turn)<br/>Auto Blame & Watchdog"]
-        LOOP -- "Unmeasured Question" --> OBSCENE
-        AGENT -- "Synthesize Typed Rust HLE (known_by: measured)" --> ORB
-        ORB -- "Verdict: FURTHER" --> PROMOTE["Promote HLE & Advance Title"]
-        ORB -- "Verdict: BACK / Deadlock" --> HATCH["HALT & ESCALATE<br/>(Escape Hatch Tripped)"]
-    end
+flowchart LR
+    APP["Write a known app"] --> PKG["Package it<br/>into platform formats"]
+    PKG --> HW["Run on real hardware"]
+    PKG --> EMU["Run in the emulator"]
+    HW --> DIFF{"Compare"}
+    EMU --> DIFF
+    DIFF --> LEARN["Measure what differs"]
+    LEARN --> APP
 ```
 
-👉 **Read the comprehensive specification in [docs/THE_LOOP.md](docs/THE_LOOP.md)**.
+## The collection
+
+Clone this repository and you have everything, arranged so it builds — the projects depend on
+one another. Each also stands alone in its own repository, where its releases, issues and a
+README aimed at whoever *uses* that one thing live.
+
+| Repository | What it is |
+|---|---|
+| **[Orbistoun](https://github.com/project-oops/Orbistoun)** | The emulator. Runs guest code natively and reconstructs the operating system beneath it. |
+| **[obSCEne](https://github.com/project-oops/obSCEne)** | The hardware probe. A program we wrote that asks the real platform questions and reports what it measured. |
+| **[Prosperous](https://github.com/project-oops/Prosperous)** | Remote management. Registers a target, deploys to it, launches, and streams its logs. |
+| **[SELFish](https://github.com/project-oops/SELFish)** | The file formats. One shared reader and writer for the platform's executables, titles and packages. |
+| **[oops-sdk](https://github.com/project-oops/oops-sdk)** | The freestanding C runtime the target software is built on. |
+| **[oops-apps](https://github.com/project-oops/oops-apps)** | Known-source homebrew and graphics demos — the testbed the rest is measured against. |
+| **[oops-mesa](https://github.com/project-oops/oops-mesa)** | Desktop-class OpenGL on the target, carried over from upstream Mesa. |
+| **[oops-libs](https://github.com/project-oops/oops-libs)** | Shared building blocks for the host-side tools. |
+
+These are the submodule directories under `OOPS/`.
+
+## Why it is built this way
+
+It is not hard to make an emulator work by copying what the hardware does. It is hard to make
+one whose every behaviour can be explained from a lawful source — and only that kind can be
+shared, packaged, or accepted from a contributor. So everything here is written from public
+documentation or measured on hardware, and where a fact came from is recorded beside it. That
+one constraint is why there are separate projects rather than a single program.
+<!-- /oops:profile -->
 
 ---
 
-## The Eight Repositories at a Glance
+## Build it
 
-The collection consists of **four primary pillars** and **four supporting repositories**:
+One command drives the whole collection:
 
-| Repository | Focus | Role in THE LOOP | Primary Commands |
-|---|---|---|---|
-| **[Orbistoun](orbistoun/)** | The Emulator | Executes guest x86-64 code natively; auto-blames crashes via watchpoints and consumes silicon measurements. | `./bin/orbistoun run <title>`<br/>`orbistoun-cli questions` |
-| **[obSCEne](obscene/)** | The Hardware Oracle | Runs 400+ targeted checks directly on PS5 hardware to measure empirical struct layouts and return codes. | `./bin/obscene build`<br/>`scripts/sweep.sh` |
-| **[Prosperous](prosperous/)** | Target Management | Remotely registers consoles, deploys title packages over LAN, launches execution, and streams `klog`. | `pros check`<br/>`pros restore <dir> <dst>`<br/>`pros launch <id>` |
-| **[SELFish](selfish/)** | File Formats | Clean-room compiler and reader for signed executables (`eboot.bin`), title metadata (`param.json`, `keystone`), and `.pkg` files. | `selfish --format title`<br/>`selfish elf <file>` |
-| **[oops-sdk](oops-sdk/)** | Freestanding C SDK | Clean-room libc, RDNA2 AGC display/tiler, DualSense input, and audio runtime used by target payloads. | `include $(OOPS_SDK)/oops-sdk.mk` |
-| **[oops-apps](oops-apps/)** | Test Apps & Tracer | Known-source 3D test titles ([`gl1-cube`](oops-apps/src/oops-gl/gl1-cube)) and passive telemetry [`tracer`](oops-apps/src/oops-payloads/tracer/) for capturing commercial game calls & shaders. | `make title`<br/>`./bin/oops-apps check` |
-| **[oops-libs](oops-libs/)** | Shared Rust Libs | Shared infrastructure for host tools: unified logging (`oops-log`), build stamps (`oops-build`), paths (`oops-paths`), and in-app documentation (`oops-docs`). | Path dependency in host tools |
-| **[oops-mesa](oops-mesa/)** | OpenGL Shim | Carries upstream Mesa's radeonsi route onto the target to give apps OpenGL 3.3 Core / GLSL 3.30; its RDNA2 register database is Orbistoun's cited provenance oracle for GPU decode. | `include $(OOPS_MESA)/oops-mesa.mk` |
-
----
-
-## Quickstart Guide
-
-### 1. Prerequisites
-- **Rust toolchain** (stable 2021 edition)
-- **C Cross-Compiler** (`clang` and `lld` 18+ for target payloads; Windows users use WSL or container)
-
-### 2. Clone the Collection
 ```bash
 git clone --recurse-submodules https://github.com/project-oops/OOPS
 cd OOPS
+./bin/oops setup      # first run: prepares the build environment
+./bin/oops build      # build the tools and libraries
 ```
 
-### 3. Environment Doctor & Build
-On Windows, `bin/oops setup` installs the lightweight `oops-builder` WSL distribution for compiling C payloads:
-```bash
-./bin/oops setup           # Windows: sets up WSL oops-builder distribution
-./bin/oops doctor          # verify toolchains and dependencies
-./bin/oops build           # compile all tools and libraries
-./bin/oops test            # run the shared test suites
-```
+The full reference — cross-compilation, the per-project commands, and CI — is in
+**[docs/BUILDING.md](docs/BUILDING.md)**.
 
-### 4. Common Developer Workflows
+## Read next
 
-#### A. Build a 3D Test Application
-```bash
-cd oops-apps/src/oops-gl/gl1-cube
-make title
-```
-This compiles `gl1-cube.elf` using `oops-sdk` and automatically packages a complete title directory (`build/title/GLCB00001/`) using `selfish` and `obscene-tool`.
-
-#### B. Deploy and Run on Real Hardware
-```bash
-# Check console status (target IP defaults to config or 192.168.1.211)
-pros.exe check
-
-# Deploy title to /data/homebrew/ scan root and launch
-pros.exe restore oops-apps\src\oops-gl\gl1-cube\build\title\GLCB00001 /data/homebrew/GLCB00001
-pros.exe launch GLCB00001
-
-# Stream live console kernel log
-pros.exe logs --seconds 15
-```
-
-#### C. Run in the Orbistoun Emulator
-```bash
-cd orbistoun
-./bin/orbistoun run GLCB00001
-```
-Orbistoun parses the title container, resolves imports by NID hash, executes natively, and diffs the resulting trace against previous runs (`FURTHER` / `same` / `BACK`).
-
----
-
-## Strict Clean-Room Rules (CONVENTIONS §1 & §10)
-
-1. **Zero Leaked Code**: Zero vendor SDK headers, zero leaked binaries, zero disassembled source code reproduction. Every subsystem is freestanding and documented from public specifications or empirical hardware measurements.
-2. **First-Party Tooling Only**: Never bypass collection tools with one-off Python or shell scripts. We always use `selfish` for packaging, `pros` for hardware transport, and `app.mk` for builds. If a tool has a bug or lacks a flag, **we fix the tool**.
-3. **No Fake Stubs (The Anti-Kyty Principle)**: Emulators must never forge return codes to bypass crashes. Gaps are measured on real silicon via `obSCEne`, grounded in `known_by: measured`, or left as explicit failing stubs.
-
----
-
-## Directory Layout & Shared Paths
-
-```
-OOPS/                ← Meta-repository and shared orchestration scripts
-  orbistoun/         ← Submodule: High-level emulator
-  obscene/           ← Submodule: Hardware conformance probe
-  prosperous/        ← Submodule: Target management CLI (pros) and GUI
-  selfish/           ← Submodule: File format compiler and inspector
-  oops-sdk/          ← Submodule: Clean-room freestanding C SDK
-  oops-apps/         ← Submodule: Conforming homebrew titles & testbed
-  oops-libs/         ← Submodule: Shared host-side Rust crates
-  oops-mesa/         ← Submodule: OpenGL 3.3 shim over upstream Mesa
-  docs/              ← Ecosystem conventions, architecture, THE LOOP
-  bin/oops           ← Master CLI dispatcher for the entire collection
-```
-
-Every tool shares a unified data directory:
-- **Windows**: `%APPDATA%\OOPS\` (configs, target registries, save data) and `%LOCALAPPDATA%\OOPS\` (rebuildable caches, logs)
-- **Linux / macOS**: `~/.local/share/OOPS/` and `~/.cache/OOPS/`
-
----
-
-## Where to Read Next
-
-- **[docs/THE_LOOP.md](docs/THE_LOOP.md)** — The complete specification of the automated development and hardware oracle loop.
-- **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)** — Core engineering rules: provenance, clean-room standards, and decision logging.
-- **[docs/BUILDING.md](docs/BUILDING.md)** — Complete reference for `./bin/oops` commands, cross-compilation, and CI workflows.
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Detailed inter-project boundaries and compile-time/runtime dependencies.
-- **[docs/GLOSSARY.md](docs/GLOSSARY.md)** — Platform terminology, NID hashes, and ELF structures demystified.
-
----
+- **[docs/THE_LOOP.md](docs/THE_LOOP.md)** — how the projects form one feedback loop.
+- **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** — end-to-end workflows.
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — how the projects fit together.
+- **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)** — the engineering rules, including the clean-source provenance standard.
+- **[docs/GLOSSARY.md](docs/GLOSSARY.md)** — platform terminology.
 
 ## License
 
 Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
-<!-- /oops:profile -->

@@ -4,7 +4,7 @@ Welcome to the **OOPS** (**O**rbistoun, **o**bSCEne, **P**rosperous, **S**ELFish
 
 This guide is designed for **homebrew developers, operators, hardware testers, and curious users** who want to build, package, deploy, or emulate console applications using 100% clean-room, first-party tools.
 
-If you are an AI coding agent or an emulator/compiler architect looking for formal specifications, ABI layouts, or decision records, consult the **[Technical Reference & THE LOOP](THE_LOOP.md)** instead.
+Looking for the deep technical detail — the architecture, ABI layouts and decision records? See **[THE LOOP](THE_LOOP.md)** and each project's own technical reference.
 
 ---
 

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>oops-apps</title>
+<link rel="icon" href="media/gl1-cube/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="index.css">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <h1 class="brand">oops-apps <span>index</span></h1>
+    <p class="tagline">Open homebrew for Orbis and Prospero consoles, built with oops-sdk and oops-mesa. Every app is rebuilt fresh from <code>main</code> &mdash; pick one and download it.</p>
+    <div class="controls">
+      <input id="search" type="search" placeholder="Search apps&hellip;" autocomplete="off" aria-label="Search apps">
+      <div id="filters" class="filters" role="tablist" aria-label="Filter by kind"></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="grid" class="grid" aria-live="polite"></div>
+  <p id="empty" class="empty" hidden>No apps match that search.</p>
+</main>
+
+<footer class="site-foot wrap">
+  <a href="https://github.com/project-oops/oops-apps">Source</a> &middot;
+  <a href="docs/">Documentation</a> &middot;
+  <a href="https://github.com/project-oops/oops-apps/releases/tag/latest-main">All downloads</a> &middot;
+  <a href="https://project-oops.github.io/OOPS/">The OOPS collection</a>
+</footer>
+
+<!-- Detail dialog, populated on demand -->
+<div id="overlay" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="d-title">
+    <button class="close" id="close" aria-label="Close">&times;</button>
+    <div id="detail"></div>
+  </div>
+</div>
+
+<script src="apps.js"></script>
+<script src="index.js"></script>
+</body>
+</html>
