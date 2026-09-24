@@ -171,6 +171,13 @@
     if (app.version) tags.appendChild(el("span", "badge", "v" + esc(app.version)));
     tags.appendChild(el("span", "badge", esc(app.name)));
     htext.appendChild(tags);
+    if (app.repo) {
+      var src = el("a", "src-link", "View source on GitHub ↗");
+      src.href = app.repo;
+      src.target = "_blank";
+      src.rel = "noopener";
+      htext.appendChild(src);
+    }
     head.appendChild(htext);
     detail.appendChild(head);
 

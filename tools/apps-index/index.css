@@ -155,6 +155,8 @@ main { padding: 34px 0 60px; }
 .detail-head h2 { margin: 0 0 5px; font-size: 22px; }
 .detail-head .sub { color: var(--muted); margin: 0; font-size: 14px; }
 .detail-head .tags { margin-top: 8px; display: flex; gap: 7px; flex-wrap: wrap; }
+.detail-head .src-link { display: inline-block; margin-top: 10px; color: var(--accent); font-size: 13px; font-weight: 600; text-decoration: none; }
+.detail-head .src-link:hover { text-decoration: underline; }
 
 .gallery { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 22px; scroll-snap-type: x mandatory; }
 .gallery :is(img, video) {

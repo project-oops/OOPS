@@ -162,9 +162,13 @@ while IFS= read -r app; do
     subtitle="$(ae_get "$env" APP_SUBTITLE)"
     version="$(ae_get "$env" TITLE_VERSION)"
 
+    # The app's own directory inside the repo - used both to repoint the README's relative links
+    # (render_desc) and to link the card back to the source on GitHub.
+    appdir="${dir#"$SRC"/}"
+
     icon="$(emit_icon "$app" "$dir")"
     media="$(emit_media "$app" "$dir")"
-    desc="$(render_desc "$dir/README.md" "${dir#"$SRC"/}")"
+    desc="$(render_desc "$dir/README.md" "$appdir")"
 
     jq -n \
         --arg name "$app" \
@@ -174,8 +178,9 @@ while IFS= read -r app; do
         --arg version "$version" \
         --arg icon "$icon" \
         --arg desc "$desc" \
+        --arg repo "https://github.com/project-oops/oops-apps/tree/main/$appdir" \
         --argjson media "$media" \
-        '{name:$name,title:$title,subtitle:$subtitle,kind:$kind,version:$version,icon:$icon,media:$media,desc:$desc}' \
+        '{name:$name,title:$title,subtitle:$subtitle,kind:$kind,version:$version,icon:$icon,media:$media,desc:$desc,repo:$repo}' \
         >> "$records"
 done < <("$SRC/bin/oops-apps" list)
 
