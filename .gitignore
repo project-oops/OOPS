@@ -24,3 +24,13 @@ desktop.ini
 *.swp
 *.swo
 *~
+
+# **Scratch at the root, which is where a quick experiment lands.** Assembling a few gfx1030
+# instructions to read their encoding out of clang leaves a `.s` and a `.o` beside it, and
+# packaging a payload by hand leaves a `test_eboot.bin`. The maintained shader sources live in
+# `oops-sdk/tools/shader/`; anything at this level is a probe somebody ran once. Named here
+# because `git add -A` does not know scratch from source - a 6 MB test eboot was nearly
+# committed with it.
+/*.s
+/*.o
+/test_eboot*.bin
