@@ -10,9 +10,8 @@
 # Most of what is here is `undated`, and that part will not shrink: none of these repositories
 # had commit history when those entries were written, so the date is unrecoverable rather than
 # missing. The `duplicate` and `out-of-order` keys in orbistoun and obscene came from two
-# sessions writing one log at once - see conventions section 4, "when two sessions write the
-# same log". The remedy there is not for one side to choose alone, which is why they are
-# recorded here rather than fixed unilaterally.
+# sessions writing one log at once. Numbers are never reused (STYLE, decisions), so they are
+# recorded here rather than renumbered.
 
 obscene D027 undated
 obscene D028 undated

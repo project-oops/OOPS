@@ -15,25 +15,28 @@ Looking for a project rather than the collection? [orbistoun](https://github.com
 [root README](../README.md) has the shape of the whole thing, including the oracle problem
 that explains why there are separate projects instead of one.
 
-## The seven documents
+## The documents
 
-**[CONVENTIONS.md](CONVENTIONS.md)** - the rules that hold everywhere, in nine numbered
-sections. Read 1, 2 and 3 before changing anything:
+**[CONVENTIONS.md](CONVENTIONS.md)** - the rules that hold everywhere. Read 1, 2 and 3
+before changing anything:
 
 | | |
 |---|---|
-| §1 | **Provenance is a hard boundary** - no firmware, keys, decrypted titles or disassembly. What may be read from someone else's source, and what may not. |
-| §2 | **Naming** - no vendor brands in prose or in our own API; the vocabulary for our own layers (guest, host, loader, target, implementation); and **the four axes of a build and a run** - target, format, category, context - which is what a CLI, a release artifact and a conformance matrix all have to agree on. |
-| §3 | **Honest failure over plausible output** - a stub that returns success is indistinguishable from working code until forty thousand frames later. |
-| §4 | Decision logs, and what to do when two sessions write the same one |
-| §5 | Do not write down anything that goes stale |
-| §6 | Worklogs |
-| §7 | Greenfield: no legacy, no compatibility shims |
-| §8 | Gates - including that a guard is not finished until somebody has made it fail |
-| §9 | Logging |
+| §1 | Provenance: no firmware, keys, decrypted titles or disassembly; what may be read from someone else's source |
+| §2 | Naming: no vendor brands; the words for our own layers; the four axes of a build and a run |
+| §3 | Honest failure over plausible output |
+| §4 | Greenfield: no legacy, no compatibility shims |
+| §5 | Gates |
+| §6 | Logging |
+| §7 | First-party tooling |
+| §8 | Toolchain |
+| §9 | Working across repositories |
 
-Sections are cited by number and by anchor from all eight repositories, so they are stable:
-renaming one breaks links in code comments, `.gitattributes` files and CI workflows.
+Sections are cited by number and anchor from every repository; keep headings stable.
+
+**[STYLE.md](STYLE.md)** - how code, comments, documents and commit messages are written:
+formatting, size, one owner per thing, comment rules, which documents a repository holds,
+decisions, worklog.
 
 **[ARCHITECTURE.md](ARCHITECTURE.md)** - how the four fit together. What crosses a boundary
 and what does not, the one duplication that is a question rather than a bug, the open

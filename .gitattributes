@@ -2,8 +2,7 @@
 #
 # `core.autocrlf` is a per-machine setting, so without this file the same commit checks out
 # differently on two developers's disks and the difference shows up as a diff nobody made.
-# orbistoun and obSCEne both learned this the hard way and carry their own; this is the same
-# rule for the meta-repository. See OOPS conventions section 8.
+# Line endings are pinned in every repository. See OOPS conventions section 5.
 #
 # `text=auto` rather than a list of extensions: git detects binary content itself, and a list
 # only protects the extensions somebody remembered.

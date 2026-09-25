@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Check every project's decision log against OOPS conventions section 4.
+# Check every project's decision log against OOPS STYLE, section 4 (decisions).
 #
 #   tools/check-decisions.sh                 # every member
 #   tools/check-decisions.sh selfish         # one

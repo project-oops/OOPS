@@ -11,9 +11,7 @@
 # why this workflow is the only one in this repository. `check-dashes.sh` joins them for the
 # same reason: the house prose style is one collection-wide rule, not five.
 #
-# Conventions section 8 says a gate that never fires is indistinguishable from one that
-# passes. Until this file existed, both of these were run by hand or not at all, which is the
-# same defect one step earlier: a gate nobody runs is not a gate.
+# Runs the collection gates on every push (conventions section 5).
 name: gates
 
 on:

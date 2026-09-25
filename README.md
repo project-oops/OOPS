@@ -85,6 +85,7 @@ The full reference — cross-compilation, the per-project commands, and CI — i
 - **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** — end-to-end workflows.
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — how the projects fit together.
 - **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)** — the engineering rules, including the clean-source provenance standard.
+- **[docs/STYLE.md](docs/STYLE.md)** - how code, comments and documents are written.
 - **[docs/GLOSSARY.md](docs/GLOSSARY.md)** — platform terminology.
 
 ## License

@@ -17,7 +17,7 @@ byte-identical output before the original was deleted.
 
 ## `check-decisions.sh`
 
-Holds every `docs/DECISIONS.md` to [conventions §4](../docs/CONVENTIONS.md#4-decision-logs):
+Holds every `docs/DECISIONS.md` to [STYLE, decisions](../docs/STYLE.md#decisions):
 entries in numeric order, no number used twice, no gaps in the run, every entry titled, every
 entry dated, and dates that do not run backwards.
 
@@ -38,7 +38,7 @@ Most of what it found cannot be fixed. Undated entries are undated because none 
 repositories had commit history when they were written, so the date is unrecoverable rather
 than missing; the duplicates and out-of-order entries in orbistoun and obSCEne came from two
 sessions writing one log at once, and
-[conventions §4](../docs/CONVENTIONS.md#when-two-sessions-write-the-same-log) says the remedy
+[STYLE, decisions](../docs/STYLE.md#decisions) says the remedy
 there is not for one side to choose alone.
 
 So the gate could never pass, and a gate whose verdict is "fails" on every run it will ever
@@ -100,13 +100,13 @@ a comment saying the project depended on nothing outside itself, which had been 
 was written.
 
 It has also been made to fail on purpose since, per
-[conventions §8](../docs/CONVENTIONS.md): the bootstrap step was deleted from a job and it
+[conventions §3](../docs/CONVENTIONS.md#3-honest-failure-over-plausible-output): the bootstrap step was deleted from a job and it
 named that job.
 
 ## `check-dashes.sh`
 
 No em-dash or en-dash in prose. See
-[conventions section 8](../docs/CONVENTIONS.md#dashes-are-hyphens).
+[STYLE section 1](../docs/STYLE.md#1-write-what-is).
 
 ```bash
 tools/check-dashes.sh
@@ -130,7 +130,7 @@ A fenced block is **not** exempt as a class. A captured session is evidence and 
 dashes; a hand-written comment inside an illustrative block is prose. Nothing can tell those
 apart by looking at the fence, so a new one has to be added here deliberately.
 
-It has been made to fail, per [conventions section 8](../docs/CONVENTIONS.md): a dash was
+It has been made to fail, per [conventions section 3](../docs/CONVENTIONS.md#3-honest-failure-over-plausible-output): a dash was
 added to a document and it named the file and line.
 
 ## `publish-profile.sh`
