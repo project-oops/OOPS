@@ -41,6 +41,16 @@ body {
 .tagline code { color: var(--fg); background: var(--panel-2); padding: 1px 6px; border-radius: 5px; font-size: 13px; }
 
 .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.sort {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--muted); font-size: 13px; white-space: nowrap;
+}
+.sort select {
+  background: var(--panel); border: 1px solid var(--rule); color: var(--fg);
+  padding: 9px 12px; border-radius: 10px; font: inherit; font-size: 13px; cursor: pointer;
+}
+.sort select:focus { outline: none; border-color: var(--accent); }
+.status-filters { margin-top: 12px; }
 #search {
   flex: 1 1 240px;
   background: var(--panel);
@@ -115,6 +125,12 @@ main { padding: 34px 0 60px; }
   padding: 2px 7px; text-transform: capitalize;
 }
 .badge.media { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+/* Readiness badge - how much a title is worth trying, orthogonal to its kind. */
+.badge.status { font-weight: 600; }
+.badge.status.playable { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.badge.status.experimental { color: #d29922; border-color: color-mix(in srgb, #d29922 45%, transparent); }
+.badge.status.wip { color: #8b949e; border-color: #30363d; }
 .empty { color: var(--muted); text-align: center; padding: 40px 0; }
 
 /* ---- footer ---- */

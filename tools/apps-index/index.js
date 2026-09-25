@@ -16,9 +16,23 @@
   var filters = document.getElementById("filters");
   var overlay = document.getElementById("overlay");
   var detail = document.getElementById("detail");
+  var statusFilters = document.getElementById("status-filters");
+  var sortSel = document.getElementById("sort");
 
   var activeKind = "all";
+  var activeStatus = "all";
   var query = "";
+  var sortKey = "name";
+
+  /* Readiness ladder: label + sort rank, in one place so the badge, the filter and the sort agree.
+   * An app whose status is missing or unrecognised reads as experimental, matching the generator's
+   * default. */
+  var STATUS_META = {
+    playable:     { label: "Playable",     rank: 0 },
+    experimental: { label: "Experimental", rank: 1 },
+    wip:          { label: "WIP",          rank: 2 }
+  };
+  function statusOf(app) { return STATUS_META[app.status] ? app.status : "experimental"; }
 
   /* ---- helpers ---- */
 
@@ -102,6 +116,35 @@
     return Object.keys(seen).sort();
   }
 
+  function statuses() {
+    var seen = {};
+    APPS.forEach(function (a) { seen[statusOf(a)] = true; });
+    return Object.keys(STATUS_META).filter(function (s) { return seen[s]; });
+  }
+
+  function byName(a, b) {
+    return String(a.title || a.name).localeCompare(String(b.title || b.name));
+  }
+
+  /* All three sort keys are truthful from the baked data, so the grid never waits on the network.
+   * Downloads and publish-date are deliberately absent: the rolling release recreates every asset
+   * on each push, so those numbers are not meaningful until the release workflow preserves them. */
+  function sortApps(list) {
+    var l = list.slice();
+    if (sortKey === "status") {
+      l.sort(function (a, b) {
+        return (STATUS_META[statusOf(a)].rank - STATUS_META[statusOf(b)].rank) || byName(a, b);
+      });
+    } else if (sortKey === "kind") {
+      l.sort(function (a, b) {
+        return String(a.kind || "").localeCompare(String(b.kind || "")) || byName(a, b);
+      });
+    } else {
+      l.sort(byName);
+    }
+    return l;
+  }
+
   function buildFilters() {
     var all = ["all"].concat(kinds());
     all.forEach(function (k) {
@@ -120,8 +163,27 @@
     });
   }
 
+  function buildStatusFilters() {
+    var all = ["all"].concat(statuses());
+    all.forEach(function (s) {
+      var b = el("button", "chip");
+      b.textContent = s === "all" ? "Any readiness" : STATUS_META[s].label;
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", s === activeStatus ? "true" : "false");
+      b.addEventListener("click", function () {
+        activeStatus = s;
+        Array.prototype.forEach.call(statusFilters.children, function (ch) {
+          ch.setAttribute("aria-selected", ch === b ? "true" : "false");
+        });
+        render();
+      });
+      statusFilters.appendChild(b);
+    });
+  }
+
   function matches(app) {
     if (activeKind !== "all" && app.kind !== activeKind) return false;
+    if (activeStatus !== "all" && statusOf(app) !== activeStatus) return false;
     if (!query) return true;
     var hay = (app.title + " " + app.name + " " + app.subtitle).toLowerCase();
     return hay.indexOf(query) !== -1;
@@ -137,6 +199,8 @@
     if (app.subtitle) body.appendChild(el("p", null, esc(app.subtitle)));
 
     var meta = el("div", "meta");
+    var st = statusOf(app);
+    meta.appendChild(el("span", "badge status " + st, STATUS_META[st].label));
     if (app.kind) meta.appendChild(el("span", "badge", esc(app.kind)));
     if (app.media && app.media.length) {
       var n = app.media.length;
@@ -151,7 +215,7 @@
 
   function render() {
     grid.innerHTML = "";
-    var shown = APPS.filter(matches);
+    var shown = sortApps(APPS.filter(matches));
     shown.forEach(function (a) { grid.appendChild(card(a)); });
     emptyMsg.hidden = shown.length !== 0;
   }
@@ -167,6 +231,8 @@
     htext.appendChild(el("h2", null, esc(app.title)));
     if (app.subtitle) htext.appendChild(el("p", "sub", esc(app.subtitle)));
     var tags = el("div", "tags");
+    var dst = statusOf(app);
+    tags.appendChild(el("span", "badge status " + dst, STATUS_META[dst].label));
     if (app.kind) tags.appendChild(el("span", "badge", esc(app.kind)));
     if (app.version) tags.appendChild(el("span", "badge", "v" + esc(app.version)));
     tags.appendChild(el("span", "badge", esc(app.name)));
@@ -283,7 +349,13 @@
     render();
   });
 
+  sortSel.addEventListener("change", function () {
+    sortKey = sortSel.value;
+    render();
+  });
+
   /* ---- go ---- */
   buildFilters();
+  buildStatusFilters();
   render();
 })();

@@ -18,7 +18,15 @@
     <div class="controls">
       <input id="search" type="search" placeholder="Search apps&hellip;" autocomplete="off" aria-label="Search apps">
       <div id="filters" class="filters" role="tablist" aria-label="Filter by kind"></div>
+      <label class="sort">Sort
+        <select id="sort" aria-label="Sort apps">
+          <option value="name">Name</option>
+          <option value="status">Readiness</option>
+          <option value="kind">Kind</option>
+        </select>
+      </label>
     </div>
+    <div id="status-filters" class="filters status-filters" role="tablist" aria-label="Filter by readiness"></div>
   </div>
 </header>
 

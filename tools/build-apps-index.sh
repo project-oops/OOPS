@@ -158,6 +158,16 @@ while IFS= read -r app; do
     group="$(basename "$(dirname "$dir")")"
     kind="$(ae_get "$env" KIND)"; kind="${kind:-$(infer_kind "$group" "$app")}"
 
+    # Readiness, for the "worth trying" badge - orthogonal to KIND. `playable` works end to end,
+    # `experimental` runs but is rough or incomplete, `wip` is not expected to work yet. Unset is
+    # `experimental` (neither claimed nor condemned), and an unknown value fails the build, so the
+    # vocabulary stays a fixed set the badge and the filter can rely on.
+    status="$(ae_get "$env" STATUS)"; status="${status:-experimental}"
+    case "$status" in
+        playable|experimental|wip) ;;
+        *) echo "build-apps-index: $app: STATUS='$status' is not one of playable|experimental|wip" >&2; exit 1 ;;
+    esac
+
     title="$(ae_get "$env" TITLE_NAME)"; title="${title:-$app}"
     subtitle="$(ae_get "$env" APP_SUBTITLE)"
     version="$(ae_get "$env" TITLE_VERSION)"
@@ -175,12 +185,13 @@ while IFS= read -r app; do
         --arg title "$title" \
         --arg subtitle "$subtitle" \
         --arg kind "$kind" \
+        --arg status "$status" \
         --arg version "$version" \
         --arg icon "$icon" \
         --arg desc "$desc" \
         --arg repo "https://github.com/project-oops/oops-apps/tree/main/$appdir" \
         --argjson media "$media" \
-        '{name:$name,title:$title,subtitle:$subtitle,kind:$kind,version:$version,icon:$icon,media:$media,desc:$desc,repo:$repo}' \
+        '{name:$name,title:$title,subtitle:$subtitle,kind:$kind,status:$status,version:$version,icon:$icon,media:$media,desc:$desc,repo:$repo}' \
         >> "$records"
 done < <("$SRC/bin/oops-apps" list)
 
