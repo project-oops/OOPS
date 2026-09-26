@@ -15,8 +15,8 @@ Code, comments and documents describe the system as it is, in the present tense.
 - **No storytelling.** State the fact, then the reason if it is not obvious. No account of
   how something was discovered, no lessons, no rhetorical headings ("Why this is a...").
 - **No status.** "Works", "not yet", "currently N of M", limitation lists and progress
-  tables stay out of hand-written text. Open work is a GitHub issue in the repository it
-  belongs to. Generated status is allowed (section 5).
+  tables stay out of hand-written text. Open work is a line in the repository's `ISSUES.md`.
+  Generated status is allowed (section 5).
 - **No numbers that change with the code.** Counts of crates, tests, commands, symbols or
   files are generated, pointed at ("the members are in `Cargo.toml`"), or left out.
 - **Matter-of-fact tone.** Short declarative sentences. Bold marks a defined term or a rule
@@ -122,6 +122,7 @@ Not in comments:
 | `docs/WORKLOG.md` | one entry per milestone |
 | `CHANGELOG.md` | one line per user-visible change, under the release that shipped it; only in a repository that tags releases |
 | `ACKNOWLEDGEMENTS.md` | sources consulted |
+| `ISSUES.md` | open defects, gaps and unmeasured facts, one line each; a line is deleted when it is fixed |
 | `data/` | measured and cited facts, as text with a provenance header |
 
 Generated documents are allowed anywhere. Each states the command that generates it, and a
@@ -177,10 +178,10 @@ An entry is at most about ten bullets, with no narrative.
 
 ### Status and open work
 
-Open work, known gaps and defects are GitHub issues in the repository they belong to, one
-per item, closed when done. No hand-written roadmap status, backlog, milestone-state or
-"where it stands" document. A `ROADMAP.md` may give the intended order of work, one line
-per item, each linking its issue.
+Open work, known gaps and defects are one line each in the repository's `ISSUES.md`, grouped
+by kind and deleted when done. No other hand-written roadmap status, backlog,
+milestone-state or "where it stands" document. A `ROADMAP.md` may give the intended order of
+work, one line per item.
 
 ## 5. Commit messages
 

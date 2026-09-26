@@ -25,8 +25,8 @@ When you do add something, the commit message says what you checked and why noth
 ## 2. Keep the collection small
 
 - Write code, not documents. [STYLE section 4](docs/STYLE.md#4-documents) lists every
-  document a repository holds; anything else goes in a commit message, a GitHub issue or a
-  code comment.
+  document a repository holds; anything else goes in a commit message, a line in `ISSUES.md`
+  or a code comment.
 - Write what is. No history, no storytelling, no status in code comments or documents.
 - Record a decision only when it is a choice between real alternatives that constrains later
   work. Write a worklog entry only at a milestone.
