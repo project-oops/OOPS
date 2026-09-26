@@ -66,7 +66,7 @@ if [ "$index_only" -eq 0 ]; then
             if (length(t) > 40) { t = substr(t, 1, 40); sub(/-[^-]*$/, "", t) }
             return t
         }
-        # The preamble is replayed into docs/, so its links are not rewritten.
+        # Text before the first item goes to `_preamble.md`.
         BEGIN { out = dir "/_preamble.md"; n = 0 }
         {
             # A heading at exactly the requested level, not deeper.
@@ -100,6 +100,9 @@ for f in $(find "$dir" -name '[0-9]*.md' | sort); do
     esac
 done
 
+GREEN=$'\xf0\x9f\x9f\xa2' YELLOW=$'\xf0\x9f\x9f\xa1' RED=$'\xf0\x9f\x94\xb4' WHITE=$'\xe2\x9a\xaa'
+
+# shellcheck disable=SC2016 # markdown with literal backticks
 {
     # The preamble supplies the title; without one, the document name.
     if [ -s "$dir/_preamble.md" ]; then
@@ -142,24 +145,24 @@ done
             'Not planned'*|'Not yet'*|'Not doing'*) status="not planned" ;;
         esac
         case "$status" in
-            done)             light='\xf0\x9f\x9f\xa2' ;;
-            begun)            light='\xf0\x9f\x9f\xa1' ;;
-            "not done")       light='\xf0\x9f\x94\xb4' ;;
-            deferred|answered|"not planned") light='\xe2\x9a\xaa' ;;
+            done)             light="$GREEN" ;;
+            begun)            light="$YELLOW" ;;
+            "not done")       light="$RED" ;;
+            deferred|answered|"not planned") light="$WHITE" ;;
             # No marker is not "open"; red is only for an explicit "not done".
-            *)                light='\xe2\x9a\xaa'; status="no marker" ;;
+            *)                light="$WHITE"; status="no marker" ;;
         esac
         clean="$(printf '%s' "$title" | sed 's/[ ]*\*([^)]*)\*//g; s/~~//g; s/[ ]*- done.*$//; s/[ ]*- deferred.*$//')"
-        printf "| $(printf "$light") | [%s](%s/%s) | %s |\n" "$clean" "$sub" "$base" "$status"
+        printf '| %s | [%s](%s/%s) | %s |\n' "$light" "$clean" "$sub" "$base" "$status"
     done
 
     if [ "$has_status" -eq 1 ]; then
         printf '\n'
         printf '| | meaning |\n|---|---|\n'
-        printf "| $(printf '\xf0\x9f\x9f\xa2') | done |\n"
-        printf "| $(printf '\xf0\x9f\x9f\xa1') | begun |\n"
-        printf "| $(printf '\xf0\x9f\x94\xb4') | open, or explicitly not done |\n"
-        printf "| $(printf '\xe2\x9a\xaa') | deferred, not planned, or carrying no marker either way |\n"
+        printf '| %s | done |\n' "$GREEN"
+        printf '| %s | begun |\n' "$YELLOW"
+        printf '| %s | open, or explicitly not done |\n' "$RED"
+        printf '| %s | deferred, not planned, or carrying no marker either way |\n' "$WHITE"
     fi
 } > "$src"
 

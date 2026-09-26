@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup-wsl.sh - make a machine able to build the three C repositories.
+# setup-wsl.sh - make a machine able to build the C repositories.
 #
 #   tools/setup-wsl.sh              # WSL's Ubuntu distribution if there is none, then the toolchain
 #   tools/setup-wsl.sh --dry-run    # say what it would do, and change nothing
@@ -16,7 +16,6 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(dirname "$HERE")"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     BOLD=$'\033[1m'; RED=$'\033[31m'; GREEN=$'\033[32m'; DIM=$'\033[2m'; OFF=$'\033[0m'
@@ -224,13 +223,13 @@ target_distro() {
     if [ -n "${WSL_DISTRO:-}" ]; then printf '%s' "$WSL_DISTRO"; return 0; fi
     local marked usable
     usable="$(distros)"
-    if printf '%s\n' "$usable" | grep -qxF "$DISTRO_NAME"; then
+    if grep -qxF "$DISTRO_NAME" <<< "$usable"; then
         printf '%s' "$DISTRO_NAME"
         return 0
     fi
     marked="$(MSYS_NO_PATHCONV=1 wsl.exe --list --verbose 2>/dev/null | tr -d '\r\0' |
         awk '/^\*/ { print $2; exit }')"
-    if [ -n "$marked" ] && printf '%s\n' "$usable" | grep -qxF "$marked"; then
+    if [ -n "$marked" ] && grep -qxF "$marked" <<< "$usable"; then
         printf '%s' "$marked"
         return 0
     fi
@@ -266,7 +265,7 @@ outer() {
     have="$(distros)"
     [ -n "$have" ] && note "  other distributions here: $(printf '%s' "$have" | tr '\n' ' ')"
 
-    if ! printf '%s\n' "$have" | grep -qxF "$DISTRO_NAME"; then
+    if ! grep -qxF "$DISTRO_NAME" <<< "$have"; then
         step "installing $DISTRO_NAME"
         # Affects new installs only; existing distributions keep their version.
         run env MSYS_NO_PATHCONV=1 wsl.exe --set-default-version 2 >/dev/null 2>&1 || true
@@ -282,7 +281,9 @@ outer() {
             bad "installing $DISTRO_NAME failed"
             printf '\n'
             printf 'If that reported an unrecognised option, this WSL is older than 2.4 and cannot\n'
+            # shellcheck disable=SC2016 # literal backticks
             printf 'name a distribution. `wsl --version` says which it is; updating Windows or\n'
+            # shellcheck disable=SC2016 # literal backticks
             printf '`wsl --update` is the fix, and installing %s by hand is the way round it.\n' "$DISTRO_IMAGE"
             return 1
         }

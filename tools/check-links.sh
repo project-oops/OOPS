@@ -110,8 +110,8 @@ while IFS="$(printf '	')" read -r src line target; do
     case "$full" in *.md) ;; *) continue ;; esac
 
     # Compare case-insensitively, the way GitHub resolves a fragment.
-    want="$(printf '%s' "$frag" | tr 'A-Z' 'a-z')"
-    if ! anchors_of "$full" | grep -Fxq -- "$want"; then
+    want="$(printf '%s' "$frag" | tr '[:upper:]' '[:lower:]')"
+    if ! grep -Fxq -- "$want" < <(anchors_of "$full"); then
         printf '%s:%s -> %s (no such anchor)\n' "$src" "$line" "$target" >> "$bad"
     fi
 done < "$links"

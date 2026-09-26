@@ -49,7 +49,7 @@ published() {
 remote_sha() {
     local out
     out="$(gh api "repos/$ORG/$PROFILE_REPO/contents/$1" --jq '.sha' 2>/dev/null)" || return 0
-    printf '%s' "$out" | grep -qE '^[0-9a-f]{40}$' && printf '%s' "$out"
+    grep -qE '^[0-9a-f]{40}$' <<< "$out" && printf '%s' "$out"
     return 0
 }
 

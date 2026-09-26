@@ -39,7 +39,7 @@ if [ "$dry_run" -eq 1 ]; then
     echo "  last:  $(grep -E '^## D[0-9]+' "$log" | tail -1)"
     printf '  statuses:'
     grep -ohiE '^\*{0,2}(status:)?[ ]*\*{0,2}(decided|assumed|measured|derived|proposed|reversed|superseded)' "$log" \
-        | sed 's/.*[ :*]//' | tr 'A-Z' 'a-z' | sort | uniq -c | sort -rn \
+        | sed 's/.*[ :*]//' | tr '[:upper:]' '[:lower:]' | sort | uniq -c | sort -rn \
         | while read -r n s; do printf ' %s=%s' "$s" "$n"; done
     echo
     exit 0
@@ -114,7 +114,7 @@ retitle() {
         title="$(awk -f "$HERE/lib/recover-title.awk" "$f")"
         # With no bold lead the file keeps its empty name, and check-decisions.sh reports it.
         [ -n "$title" ] || { printf '  %s: no bold lead, left alone\n' "$base" >&2; continue; }
-        slug="$(printf '%s' "$title" | tr 'A-Z' 'a-z' | tr -d '`' \
+        slug="$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]' | tr -d '`' \
                 | sed 's/[^a-z0-9]\+/-/g; s/^-\+//; s/-\+$//' \
                 | cut -c1-40 | sed 's/-[^-]*$//')"
         new="$dir/$id-$slug.md"
@@ -156,7 +156,7 @@ for f in $(find "$dir" -name 'D*.md' | sort); do
     banner="$(sed -n '2,6p' "$f" \
               | sed -n -E "s/^[[:space:]]*(>[[:space:]]*)?[*_]{1,2}($VOCABULARY)\b.*/\2/Ip" \
               2>/dev/null | head -1 || true)"
-    status="$(printf '%s' "${labelled:-$banner}" | tr 'A-Z' 'a-z')"
+    status="$(printf '%s' "${labelled:-$banner}" | tr '[:upper:]' '[:lower:]')"
     date="$(grep -m1 -oE '20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' "$f" 2>/dev/null | head -1 || true)"
     case "$status" in
         # `published` and `guest-observed` are orbistoun's provenance grades, and settled.
@@ -168,6 +168,7 @@ for f in $(find "$dir" -name 'D*.md' | sort); do
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$light" "$id" "$title" "$base" "$status" "${date:--}" >> "$rows"
 done
 
+# shellcheck disable=SC2016 # markdown with literal backticks
 {
     # The preamble, or a generic heading when there is none.
     if [ -s "$dir/_preamble.md" ]; then

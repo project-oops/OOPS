@@ -63,7 +63,7 @@ for project in $WANTED; do
         log="$work/flat.$project"
         for f in $(find "$split" -name 'D*.md' | sort); do
             sed -n '1s/^# /## /p' "$f"
-            head -8 "$f" | grep -m1 -oE '20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' || true
+            grep -m1 -oE '20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' < <(head -8 "$f") || true
         done > "$log"
     fi
 

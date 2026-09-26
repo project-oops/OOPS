@@ -86,13 +86,13 @@ wsl_target() {
     if [ -n "${WSL_DISTRO:-}" ]; then printf '%s' "$WSL_DISTRO"; return 0; fi
     local marked usable ours="${OOPS_WSL_NAME:-oops-builder}"
     usable="$(wsl_distros)"
-    if printf '%s\n' "$usable" | grep -qxF "$ours"; then
+    if grep -qxF "$ours" <<< "$usable"; then
         printf '%s' "$ours"
         return 0
     fi
     marked="$(MSYS_NO_PATHCONV=1 wsl.exe --list --verbose 2>/dev/null | tr -d '\r\0' |
         awk '/^\*/ { print $2; exit }')"
-    if [ -n "$marked" ] && printf '%s\n' "$usable" | grep -qxF "$marked"; then
+    if [ -n "$marked" ] && grep -qxF "$marked" <<< "$usable"; then
         printf '%s' "$marked"
         return 0
     fi
@@ -129,6 +129,7 @@ run_via_wsl() {
     note "via WSL: $distro:$wpath"
     # MSYS_NO_PATHCONV stops Git Bash rewriting `/mnt/c/...` into a Windows path.
     # `~/.cargo/env` puts rustup's cargo ahead of an older distribution-packaged one.
+    # shellcheck disable=SC2016 # $HOME expands inside WSL
     MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe -d "$distro" --cd "$wpath" -- \
         bash -lc 'if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi; '"$*"
 }
@@ -348,7 +349,7 @@ status_all() {
 }
 
 doctor() {
-    local rc=0 PY p
+    local rc=0 p
     have() {
         if command -v "$1" >/dev/null 2>&1; then
             printf '  %sok%s   %-7s %s\n' "$GREEN" "$OFF" "$1" "$("$1" --version 2>/dev/null | head -1)"
