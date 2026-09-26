@@ -1,21 +1,7 @@
-# The five projects are submodules (docs/PUBLISHING.md). They were listed here as ignored paths
-# until they had commits and remotes, because until then there was nothing for a .gitmodules to
-# record - and an ignored path cannot be added as a submodule, so those lines came out at the
-# same moment these went in.
-
-# No `__pycache__/` or `*.pyc` rule, deliberately. There is no Python in this repository and
-# there is not meant to be - the checks and the build scripts are shell. An ignore rule for
-# bytecode is a quiet accommodation for a language that is not allowed here: it would hide the
-# first stray file rather than let `git status` show it.
-
-# Claude Code's per-person overrides. `settings.json` beside it IS shared - SELFish uses it to
-# deny reads and edits of `escalation.*` - but the `.local` one is whoever is sitting here, and
-# tracking it means their overrides arrive in everybody else's clone. SELFish had it committed
-# as a byte-identical copy of the shared file, which is the shape this prevents.
+# Per-person Claude Code overrides; settings.json beside it is shared.
 .claude/settings.local.json
 
-# Whatever the person editing this happens to run. None of it is anybody else's business,
-# and every one of these has been committed to some repository by accident at least once.
+# Editor and OS files.
 .DS_Store
 Thumbs.db
 desktop.ini
@@ -25,12 +11,7 @@ desktop.ini
 *.swo
 *~
 
-# **Scratch at the root, which is where a quick experiment lands.** Assembling a few gfx1030
-# instructions to read their encoding out of clang leaves a `.s` and a `.o` beside it, and
-# packaging a payload by hand leaves a `test_eboot.bin`. The maintained shader sources live in
-# `oops-sdk/tools/shader/`; anything at this level is a probe somebody ran once. Named here
-# because `git add -A` does not know scratch from source - a 6 MB test eboot was nearly
-# committed with it.
+# One-off experiments at the root: assembler output and hand-packaged eboots.
 /*.s
 /*.o
 /test_eboot*.bin
