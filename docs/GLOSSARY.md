@@ -115,8 +115,8 @@ the part most likely to mislead, because nothing looks wrong.
 | Word | In obSCEne | In orbistoun | Elsewhere |
 |---|---|---|---|
 | **check** | *the* unit of measurement: one question asked of a loader, with a verdict. A check whose prerequisites failed is **skipped, not failed** | | `oops check <project>` - the CI gate. Unrelated |
-| **shape** | one of the artifact forms - payload, injector, module, title directory, package - told apart by two bytes at offset 16 | an **instruction** shape: an opcode's operand layout (orbistoun D123, D264) | |
-| **corpus** | the mined NID corpus, or the golden GPU corpus | the test corpus of titles (orbistoun D042), or the shader corpus (D088) | |
+| **shape** | one of the artifact forms - payload, injector, module, title directory, package - told apart by two bytes at offset 16 | an **instruction** shape: an opcode's operand layout (orbistoun#D123) | |
+| **corpus** | the mined NID corpus, or the golden GPU corpus | the test corpus of titles (orbistoun#D042), or the shader corpus (orbistoun#D088) | |
 | **probe** | obSCEne itself, and `obscene-probe.*` the artifacts | | in SELFish, a diagnostic program under `examples/` that prints and ships nothing |
 | **section** | a group of related checks in the report, ordered base to high level | | in ELF, a named region of the file. Both senses are live in obSCEne |
 | **payload** | a plain ELF a homebrew loader maps and runs | | Prosperous sends payloads; Porthole is one that is not finished |
