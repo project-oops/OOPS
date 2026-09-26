@@ -140,6 +140,7 @@ while IFS= read -r app; do
     title="$(ae_get "$env" TITLE_NAME)"; title="${title:-$app}"
     subtitle="$(ae_get "$env" APP_SUBTITLE)"
     version="$(ae_get "$env" TITLE_VERSION)"
+    title_id="$(ae_get "$env" TITLE_ID)"
 
     appdir="${dir#"$SRC"/}"
 
@@ -154,11 +155,12 @@ while IFS= read -r app; do
         --arg kind "$kind" \
         --arg status "$status" \
         --arg version "$version" \
+        --arg title_id "$title_id" \
         --arg icon "$icon" \
         --arg desc "$desc" \
         --arg repo "https://github.com/project-oops/oops-apps/tree/main/$appdir" \
         --argjson media "$media" \
-        '{name:$name,title:$title,subtitle:$subtitle,kind:$kind,status:$status,version:$version,icon:$icon,media:$media,desc:$desc,repo:$repo}' \
+        '{name:$name,title:$title,subtitle:$subtitle,kind:$kind,status:$status,version:$version,title_id:$title_id,icon:$icon,media:$media,desc:$desc,repo:$repo}' \
         >> "$records"
 done < <("$SRC/bin/oops-apps" list)
 
