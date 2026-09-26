@@ -5,64 +5,14 @@
 #   tools/setup-wsl.sh --dry-run    # say what it would do, and change nothing
 #   tools/setup-wsl.sh --inside     # the Linux half alone, which is also what runs on Linux
 #
-# `./bin/oops setup` is this script, and `./bin/oops doctor` is how you find out whether it
-# worked. Everything here is install-if-missing, so a run that stops halfway is run again
-# rather than unpicked.
-#
-# # Two halves, and why `--inside` is both of them
-#
-# On Windows there is an outer half and an inner half. The outer half is about WSL: whether it
-# is there, whether it holds a distribution, and whether that distribution is one the
-# collection's expectations hold for. The inner half is the toolchain, and it is the same list
-# whether it runs inside WSL or on a Linux machine directly. So `--inside` names both "the
-# part that runs in the distribution" and "the whole of what a Linux machine needs", and there
-# is one copy of the list rather than two that drift.
-#
-# # Why Ubuntu, and why not something smaller
-#
-# Alpine would compile the payloads. It would also be wrong, and quietly:
-#
-#   * **obSCEne's host harness is a glibc differential.** `make check` builds `obscene-host`
-#     against the host C library and judges what comes back, and its decision log records
-#     those expectations in glibc's terms - errno being thread-local, the value of the
-#     recursive mutex constant, which censused names resolve at all. Against musl the harness
-#     still measures correctly and disagrees with every one of those entries, which is the
-#     worst shape a wrong answer can take.
-#   * **The collection already names Ubuntu.** CI is `ubuntu-latest`, obSCEne's own scripts
-#     say `wsl.exe -d Ubuntu`, and its CLAUDE.md gives the toolchain as an `apt-get` line. The
-#     house rule is that the command a person runs and the command CI runs are one command,
-#     and a different distribution is a quiet way to make them two.
-#
-# Debian would behave the same. Ubuntu is what the documents name, so Ubuntu is what this
-# installs, and a distribution that is neither is reported rather than worked around.
-#
-# # What this does not do, deliberately
-#
-#   * **It does not enable the WSL feature.** That needs an elevated prompt and usually a
-#     reboot, so it is named and handed back rather than half-attempted from a shell that
-#     cannot finish it.
-#   * **It does not install rustup on the Windows side.** The three Rust projects build there
-#     too, but a Windows rustup wants the MSVC build tools, which is a download measured in
-#     gigabytes and somebody else's licence to accept.
-#
-# # A distribution of its own, called oops-builder, running as root
-#
-# It does not install "Ubuntu". Somebody's WSL is theirs, and an Ubuntu they already have may
-# hold their work, their packages and their account; a setup script that installs that name
-# either collides with it or quietly adopts it and starts changing it. This registers
-# `oops-builder` from the Ubuntu image instead, which says what it is for, cannot be mistaken
-# for anything a person set up, and is thrown away whole with one command:
-#
-#     wsl --unregister oops-builder
-#
-# Inside it, root. A distribution with one job has one occupant, and an account would exist
-# only to own a rustup - at the cost of choosing somebody a password. So the toolchain goes
-# into root's home, `run_via_wsl` finds it there because `$HOME/.cargo/env` is whatever home
-# the shell has, and `[user] default=root` is pinned in `/etc/wsl.conf` so that an interactive
-# `wsl -d oops-builder` never starts asking for a username either.
-#
-# None of that touches a distribution somebody else made. Point `WSL_DISTRO` at your own and
-# this installs the toolchain there, as you, and rewrites none of its configuration.
+# Run as `./bin/oops setup`; `./bin/oops doctor` checks the result. Every step installs only
+# what is missing, so an interrupted run is simply run again. On Windows it registers a WSL
+# distribution `oops-builder` from the Ubuntu image (removed with `wsl --unregister
+# oops-builder`), runs it as root, and installs the toolchain inside; on Linux it installs
+# the toolchain directly. A Debian-family glibc distribution is required, since obSCEne's
+# host harness is a differential against glibc. WSL_DISTRO names an existing distribution
+# to use instead, whose configuration is left alone. Enabling the WSL feature needs an
+# elevated prompt and a reboot, so it is left to the user.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -80,9 +30,7 @@ ok()   { printf '  %sok%s   %s\n' "$GREEN" "$OFF" "$*"; }
 bad()  { printf '  %s--%s   %s\n' "$RED" "$OFF" "$*"; }
 die()  { printf '\n%serror:%s %s\n' "$RED" "$OFF" "$*" >&2; exit 1; }
 
-# In dry-run, say it instead of doing it. Every mutating command in this script goes through
-# here, so there is one place that decides, rather than a `$DRY` test at each call site with
-# one of them eventually missing.
+# Every mutating command goes through here; in dry-run it is printed instead.
 DRY=0
 run() {
     if [ "$DRY" -eq 1 ]; then
@@ -92,45 +40,28 @@ run() {
     "$@"
 }
 
-# What the target-side build needs, and why each one. A list with no reasons is a list nobody
-# dares to trim.
+# What the build needs:
 #
-#   clang lld        the cross-compile itself: freestanding C for a FreeBSD-derived target
-#   binutils         `ar` builds oops-sdk's archive; `readelf` is what obSCEne's scripts read
-#   gcc libc6-dev    cargo invokes `cc` to link build scripts even when everything else is
-#                    clang, so a clang-only box fails with a wall of "could not compile
-#                    <crate> (build script)" and no mention of a missing linker. obSCEne's
-#                    CLAUDE.md calls this the non-obvious one, having been caught by it
-#   make             obSCEne, oops-sdk and every app under oops-apps are Makefiles
-#   clang-format     obSCEne's format gate runs it in CI
-#   zip unzip        the package job and oops-apps' release job stage archives
-#   python3          obscene/scripts/build-pkg.sh shells out to it for one generated file.
-#                    The collection has no Python and does not intend to; this is one script
-#                    reaching for it, and Ubuntu ships it regardless
+#   clang lld        the cross-compile
+#   binutils         `ar` for oops-sdk's archive, `readelf` for obSCEne's scripts
+#   gcc libc6-dev    cargo links build scripts with `cc`
+#   make             obSCEne, oops-sdk and the apps are Makefiles
+#   clang-format     the C format gates
+#   zip unzip        release and package archives
+#   python3          obscene/scripts/build-pkg.sh generates one file with it
 #   curl ca-certificates
-#                    rustup's installer arrives over https, and a distribution image thin
-#                    enough to omit curl would fail there rather than here
+#                    the rustup installer
 PACKAGES="clang lld binutils gcc libc6-dev make clang-format zip unzip python3 curl ca-certificates"
 
-# The rust components the gates need. `cargo` and `rustc` come with the toolchain; these do
-# not, and `oops lint` and `oops fmt` are what notice.
+# The rust components the gates need beyond the minimal profile.
 RUST_COMPONENTS="clippy rustfmt"
 
-# The distribution this creates, and the image it is made from.
-#
-# **A name of its own, rather than `Ubuntu`.** Somebody's WSL is theirs. They may already have
-# an Ubuntu with their work in it, their packages and their account, and a setup script that
-# installs "Ubuntu" either collides with that or silently adopts it and starts changing it.
-# `oops-builder` says what it is for, cannot be confused with anything a person set up
-# themselves, and can be thrown away whole - `wsl --unregister oops-builder` - without anybody
-# having to work out what else was in there.
-#
-# `--name` needs WSL 2.4 or newer. Older than that is reported rather than worked around.
+# The distribution this creates, and its image; its own name, so no existing Ubuntu is
+# touched. `--name` needs WSL 2.4 or newer.
 DISTRO_NAME="${OOPS_WSL_NAME:-oops-builder}"
 DISTRO_IMAGE="${OOPS_WSL_IMAGE:-Ubuntu}"
 
-# Where its disk goes. Unset means WSL's own choice, which is the right default; this exists
-# because the VHD grows to several gigabytes and not every machine wants that on C:.
+# Where its virtual disk goes; unset leaves it to WSL.
 DISTRO_LOCATION="${OOPS_WSL_LOCATION:-}"
 
 is_windows() {
@@ -140,13 +71,9 @@ is_windows() {
     esac
 }
 
-# ---------------------------------------------------------------------------------------
-# The inner half: the toolchain, in a Debian-family Linux. Runs inside WSL, or directly on a
-# Linux machine, and does not know or care which.
-# ---------------------------------------------------------------------------------------
+# The inner half: the toolchain, in a Debian-family Linux, inside WSL or not.
 
-# Refuse a distribution the collection's expectations do not hold for, and say which
-# expectation. The header has the argument; this is where it is enforced.
+# Refuse a distribution that is not Debian-family.
 check_distro() {
     local id="" like=""
     if [ -r /etc/os-release ]; then
@@ -166,14 +93,12 @@ check_distro() {
     printf 'The collection expects a Debian-family, glibc distribution. obSCEne'"'"'s host harness\n'
     printf 'is a differential against the host C library and its decision log records what it\n'
     printf 'expects in glibc'"'"'s terms, so a musl distribution measures correctly and disagrees\n'
-    printf 'with every one of those entries. Install %s beside this one:\n\n' "$DISTRO_DEFAULT"
-    printf '    wsl --install -d %s\n\n' "$DISTRO_DEFAULT"
+    printf 'with every one of those entries. Install %s beside this one:\n\n' "$DISTRO_IMAGE"
+    printf '    wsl --install -d %s\n\n' "$DISTRO_IMAGE"
     return 1
 }
 
-# Debian's own answer to "is this installed", rather than looking for the program: a package
-# can be present with its binary under a name this script does not know, and `command -v
-# libc6-dev` was never going to find anything at all.
+# Asks dpkg, since a package name need not be a program name.
 package_missing() {
     [ "$(dpkg-query -W -f='${db:Status-Status}' "$1" 2>/dev/null)" != "installed" ]
 }
@@ -205,9 +130,7 @@ inner() {
         ok "every package already installed"
     else
         note "  installing:${want}"
-        # `apt-get update` only when something is actually going to be installed. It is the
-        # slow half of this on a machine that is already set up, and running it to install
-        # nothing is how a re-run stops being cheap enough to bother with.
+        # `apt-get update` only when something is to be installed, so a re-run is fast.
         run $sudo apt-get update -qq || { bad "apt-get update failed"; return 1; }
         # shellcheck disable=SC2086
         run $sudo apt-get install -y -qq $want || { bad "apt-get install failed"; return 1; }
@@ -215,9 +138,7 @@ inner() {
     fi
 
     step "rust"
-    # rustup rather than the distribution's rustc: the projects pin components through
-    # rustup, and a distro-packaged cargo is the one obSCEne's notes record refusing a
-    # version-4 lock file and reporting it as a parse error rather than as a version problem.
+    # rustup, not the distribution's cargo, which is too old for the lock files.
     if command -v rustup >/dev/null 2>&1 || [ -x "$HOME/.cargo/bin/rustup" ]; then
         ok "rustup already installed"
     elif [ "$DRY" -eq 1 ]; then
@@ -228,17 +149,14 @@ inner() {
         ok "rustup installed"
     fi
 
-    # rustup writes this and a login shell sources it, but this shell started before it
-    # existed. Without it the component step below cannot find the rustup that was just
-    # installed, and the failure reads as rustup not having installed at all.
+    # Puts a rustup installed by this run on PATH.
     if [ -f "$HOME/.cargo/env" ]; then
         # shellcheck disable=SC1091
         . "$HOME/.cargo/env"
     fi
 
     if command -v rustup >/dev/null 2>&1; then
-        # Idempotent by rustup's own design: adding a component that is present is a no-op
-        # that exits 0, so there is nothing to check first.
+        # Adding a present component is a no-op.
         # shellcheck disable=SC2086
         run rustup component add $RUST_COMPONENTS || { bad "rustup component add failed"; return 1; }
         ok "components: $RUST_COMPONENTS"
@@ -250,9 +168,7 @@ inner() {
     verify
 }
 
-# What the machine can actually do now, asked of the machine rather than inferred from the
-# steps having exited 0. Conventions section 3: a step that ran is not a capability, and the
-# difference is the whole reason `doctor` exists.
+# Checks each tool is now on PATH, rather than trusting the install steps' exit codes.
 verify() {
     step "what this machine can do now"
     local rc=0 t
@@ -272,46 +188,24 @@ verify() {
     return "$rc"
 }
 
-# ---------------------------------------------------------------------------------------
-# The outer half: WSL, on Windows.
-# ---------------------------------------------------------------------------------------
+# The outer half: WSL, on Windows. The helpers below repeat bin/oops's, since this script
+# runs on machines where bin/oops cannot.
 
-# A Windows path as WSL sees it. The same translation `bin/oops` does in `run_via_wsl`, and
-# repeated here rather than shared because this script has to work on a machine where nothing
-# else does yet. Both copies exist for one trap: `cygpath -m` and not `-w`, because the
-# backslashes in a Windows path are eaten before wslpath sees them and it answers a mangled
-# path rather than failing.
+# A Windows path as a distribution sees it. `cygpath -m`, since wslpath loses the
+# backslashes of `-w` output; `-d`, since each distribution mounts the drives in its own place.
 to_wsl_path() {
     local distro="$1" win out
     win="$(cygpath -m "$2")"
-    # **`-d`, and this one cost a whole run.** Windows drives are not mounted at the same
-    # place in every distribution, and `wslpath` answers for the one it is asked. Without
-    # `-d` that is WSL's default - Docker Desktop's appliance on this machine, which mounts
-    # them under `/mnt/host/c`. The translation came back correct for Docker and meaningless
-    # for the builder, which reported `No such file or directory` for a script that is plainly
-    # there. Ask the distribution the path is actually for.
     out="$(MSYS_NO_PATHCONV=1 wsl.exe -d "$distro" wslpath -a "$win" 2>/dev/null | tr -d '\r\0')"
     case "$out" in
         /*) printf '%s' "$out" ;;
-        # The default mount root, when wslpath could not be asked. wslpath is preferred
-        # because it honours a non-default `root =` in wsl.conf, which this cannot know.
+        # The default mount root; wslpath honours a `root =` in wsl.conf.
         *)  printf '%s' "$2" | sed 's|^/\([a-zA-Z]\)/|/mnt/\1/|' ;;
     esac
 }
 
-# Every distribution WSL holds that a person could build in, one per line. `--list --quiet`
-# prints nothing at all when there are none - the "no installed distributions" text does not
-# go anywhere a pipe can read it - so an empty answer is the test rather than a string to
-# match. `tr` strips the UTF-16 padding and the carriage returns from a real answer.
-#
-# **A container runtime's own distributions do not count**, and this is not a nicety. Docker
-# Desktop registers `docker-desktop` on the WSL2 backend, and Rancher and podman do the same
-# under their own names. They are appliances: minimal, Alpine in Docker's case, and not
-# somewhere anybody's toolchain goes. Counting them turns "WSL has a distribution" into a
-# false yes on a machine that still cannot build anything, which is exactly the plausible
-# wrong answer conventions section 3 is about. `bin/oops` filters the same names in `doctor`,
-# and both lists are written out rather than shared because this script has to work on a
-# machine where nothing else does yet.
+# The WSL distributions a toolchain can go in, one per line; empty when there are none.
+# Container runtimes' appliance distributions (Docker Desktop, Rancher, podman) are excluded.
 distros() {
     MSYS_NO_PATHCONV=1 wsl.exe --list --quiet 2>/dev/null | tr -d '\r\0' |
         sed '/^[[:space:]]*$/d' |
@@ -320,19 +214,12 @@ distros() {
 
 # The distribution to work in, in order of preference:
 #
-#   1. WSL_DISTRO, when somebody has said outright which one they mean
-#   2. the one this script makes, when it is there - a machine with `oops-builder` on it has
-#      already answered this question
-#   3. WSL's own default, but only when that is one a person could build in. Installing Docker
-#      Desktop makes `docker-desktop` the default on a machine that had no other, and handing
-#      the toolchain to Docker's Alpine appliance fails somewhere much less obvious than here
-#   4. the first usable one, which is also the fallback if that `*` marker changes shape
+#   1. WSL_DISTRO
+#   2. the one this script creates
+#   3. WSL's default (marked `*` in `--list --verbose`), when it is a usable one
+#   4. the first usable one
 #
-# The `*` in `--list --verbose` marks the default. It is a marker rather than a word, so it
-# survives a Windows in any language, which the word beside it would not.
-#
-# `bin/oops` picks by the identical rule and says so. If the two ever disagreed, this would
-# install the toolchain into one distribution and every build would look for it in another.
+# bin/oops picks by the same rule, so builds find the toolchain this installs.
 target_distro() {
     if [ -n "${WSL_DISTRO:-}" ]; then printf '%s' "$WSL_DISTRO"; return 0; fi
     local marked usable
@@ -381,16 +268,11 @@ outer() {
 
     if ! printf '%s\n' "$have" | grep -qxF "$DISTRO_NAME"; then
         step "installing $DISTRO_NAME"
-        # Only for installs made after it, so it is set here rather than reported: an existing
-        # version-1 distribution is somebody's decision and not this script's to change.
+        # Affects new installs only; existing distributions keep their version.
         run env MSYS_NO_PATHCONV=1 wsl.exe --set-default-version 2 >/dev/null 2>&1 || true
 
-        # `--no-launch`, and this was learned the hard way. Without it `wsl --install` ends by
-        # starting the distribution so it can ask for a username and a password, and a shell
-        # that is not a terminal never answers: the install sits there, every later call to
-        # that distribution queues behind it, and killing the caller leaves an orphaned client
-        # still holding it. The symptom is that the whole of WSL stops responding, which names
-        # nothing. Registered and never launched, there is no prompt to miss.
+        # `--no-launch`: a launch waits at a username prompt no script answers, and blocks
+        # every later call to the distribution.
         local -a install_cmd
         install_cmd=(env MSYS_NO_PATHCONV=1 wsl.exe --install "$DISTRO_IMAGE"
                      --name "$DISTRO_NAME" --no-launch)
@@ -418,20 +300,9 @@ outer() {
     [ -n "$distro" ] || die "WSL reports no distribution to work in, even after installing one"
     note "  working in: $distro"
 
-    # **Root, deliberately, and only in the distribution this script made.**
-    #
-    # A named build distribution has one job and one occupant. Creating an account in it would
-    # mean choosing a password on somebody's behalf, and the account would exist only to own a
-    # rustup - so the toolchain goes in root's home and `run_via_wsl` finds it there, because
-    # `$HOME/.cargo/env` is whatever home the shell has.
-    #
-    # `[user] default=root` is written rather than assumed. A fresh Ubuntu image with no
-    # account still carries its first-run setup, and an interactive `wsl -d oops-builder` would
-    # otherwise start asking for a username - the same prompt this script exists to keep clear
-    # of. Pinning the default retires it.
-    #
-    # Only when this is the distribution named here. Somebody who points WSL_DISTRO at their
-    # own Ubuntu gets their own user and their own home, and nothing rewrites their config.
+    # In the distribution this script created only: default to root, so no account is
+    # created and the first-run username prompt never appears. The toolchain goes in root's
+    # home, where run_via_wsl's `$HOME/.cargo/env` finds it.
     if [ "$DRY" -eq 0 ] && [ "$distro" = "$DISTRO_NAME" ]; then
         MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe -d "$distro" -u root -- \
             bash -c 'grep -q "^default *= *root" /etc/wsl.conf 2>/dev/null ||
@@ -445,12 +316,8 @@ outer() {
     self="$(to_wsl_path "$distro" "$HERE/setup-wsl.sh")"
     note "  $self --inside"
 
-    # MSYS_NO_PATHCONV, or Git Bash rewrites the `/mnt/c/...` argument on its way to a Windows
-    # program and wsl.exe is handed a path under Git's own installation directory. It then
-    # reports that the script does not exist, having never been asked about the real one.
-    #
-    # `bash -lc` and not `bash <path>`: a login shell is what puts an already-installed
-    # rustup on PATH, so a second run finds what the first one installed.
+    # MSYS_NO_PATHCONV stops Git Bash rewriting `/mnt/c/...`. A login shell puts an
+    # installed rustup on PATH.
     local args="--inside"
     [ "$DRY" -eq 1 ] && args="--inside --dry-run"
     MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe -d "$distro" -- \
@@ -479,8 +346,6 @@ if [ "$MODE" = inside ]; then
 elif is_windows; then
     outer || rc=$?
 else
-    # A Linux machine needs only the inner half, and that is not a special case worth a
-    # branch of its own: it is the same list, run directly rather than through WSL.
     inner || rc=$?
 fi
 

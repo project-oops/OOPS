@@ -1,27 +1,11 @@
 #!/usr/bin/env bash
-# No em-dash or en-dash in prose. See CONVENTIONS section 8, "Dashes are hyphens".
+# No em-dash or en-dash in prose (STYLE section 1, "Dashes are hyphens").
 #
 #   tools/check-dashes.sh            # every member, plus OOPS itself
 #   tools/check-dashes.sh selfish
 #
-# # Why this is a gate and not a habit
-#
-# Two marks were in use for the same job and the split ran roughly along repository lines
-# without anybody deciding it - SELFish leaned em-dash, the other four leaned hyphen, and
-# every repository used both in the hundreds. 3,231 were converted in one pass before
-# anything was published, which is the only moment that is cheap. The next one arrives one
-# document at a time, and a convention nobody checks is a preference.
-#
-# # What is allowed to keep a dash
-#
-# An allow list of exact lines in `tools/dashes-allowed.txt`, not a pattern: a pattern would
-# quietly forgive the next one too. Each entry is a fact rather than prose - the decision-log
-# parser's own strip set, the convention that has to quote it, and two lines lifted verbatim
-# from another project's source.
-#
-# A fenced block is NOT exempt as a class. A captured session is evidence and keeps its
-# dashes; a hand-written comment inside an illustrative block is prose. Nothing can tell those
-# apart by looking at the fence, so a new one goes in the allow file deliberately.
+# Scans tracked text files. A line that keeps a dash (captured output, quoted source) is
+# listed exactly in `tools/dashes-allowed.txt`; fenced blocks are not exempt.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,13 +13,7 @@ ROOT="$(dirname "$HERE")"
 PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk oops-apps oops-mesa"
 ALLOW="$HERE/dashes-allowed.txt"
 
-# The marks this refuses, written out. That means this file contains what it forbids and
-# reports itself, so it is excluded from its own scan by the pathspec below - the right answer
-# to the wrong question, and cheaper than five allow entries explaining a checker to itself.
-#
-# `$'\uXXXX'` would keep them out of the file, and was tried: bash resolves it, but the escape
-# does not survive being written here by anything that also resolves it. Not worth the trouble
-# for a line nobody reads twice.
+# The refused marks, written literally; this file is excluded from its own scan.
 EM=$'—'
 EN=$'–'
 
@@ -61,17 +39,9 @@ trap 'rm -f "$tmp"' EXIT
 for repo in $WANTED; do
     dir="$ROOT/$repo"
     [ -d "$dir/.git" ] || continue
-    # `git grep` reads the working tree for tracked files, and its exit status is 1 for "no
-    # match" - which is the passing case here, so it must not end the run under `set -e`.
-    #
-    # `-n` for the line number, `-I` so a binary never reaches the output. The pathspec keeps
-    # this to text: a `.png` cannot hold prose, and `tools/dashes-allowed.txt` holds the very
-    # lines being excluded.
+    # `git grep` exits 1 for no match, the passing case. `bin/*` is listed by path because
+    # the entry points have no extension.
     status=0
-    # `bin/*` by path, not by extension. The entry points have no suffix - `bin/oops`,
-    # `bin/obscene` - so an extension list never saw them, and four em-dashes sat in
-    # `obscene/bin/obscene` through every clean run of this gate. A gate that reports on the
-    # files it happens to match is worth less than one that says which files it cannot see.
     git -C "$dir" grep -nI -e "$EM" -e "$EN" -- \
         '*.md' '*.rs' '*.c' '*.h' '*.sh' '*.toml' '*.yml' '*.html' 'bin/*' \
         ':!tools/dashes-allowed.txt' ':!tools/check-dashes.sh' > "$tmp" 2>/dev/null || status=$?
@@ -92,7 +62,7 @@ for repo in $WANTED; do
             continue
         fi
         if [ "$found" -eq 0 ]; then
-            printf 'em-dash or en-dash in prose (CONVENTIONS section 8):\n\n'
+            printf 'em-dash or en-dash in prose (STYLE section 1):\n\n'
         fi
         found=$((found + 1))
         [ "$found" -le 40 ] && printf '   %s/%s\n      %s\n' \

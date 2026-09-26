@@ -4,15 +4,8 @@
 #   tools/check-links.sh            # every member, plus OOPS itself
 #   tools/check-links.sh selfish
 #
-# A cross-repository link is the one kind this cannot be checked from inside a project: from
-# orbistoun, `../selfish/docs/DECISIONS.md` either exists or does not depending on what else
-# is checked out, and only the meta-repository knows.
-#
-# Only tracked files are read. The Python version this replaces walked the filesystem and
-# subtracted what `git status --ignored` reported, which was six broken links in
-# `orbistoun/site/` - a Pages bundle CI regenerates - before it learned to skip them. Asking
-# `git ls-files` for the tracked set gets the same answer without the subtraction, and cannot
-# drift from what a commit would contain.
+# Runs from the root because links between repositories resolve only in the full checkout.
+# Reads tracked markdown only (`git ls-files`); anchors follow GitHub's heading slugs.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,8 +21,7 @@ if [ "$#" -gt 0 ]; then
     done
     WANTED="$*"
 else
-    # The meta repository's own docs are checked too, but only on a full run: naming a
-    # project means that project.
+    # The root's own docs are checked on a full run only.
     WANTED="$PROJECTS ."
 fi
 
@@ -38,14 +30,8 @@ trap 'rm -rf "$work"' EXIT
 links="$work/links"
 : > "$links"
 
-# --- collect every relative link -------------------------------------------------------
-#
-# `[text](target)`, with the target having no whitespace. Emitted as
-# `<source path><TAB><line><TAB><target>` for the resolver below. A line can hold several, so
-# the match loop consumes the line as it goes.
-#
-# Tab-separated, not pipe: the generated indexes are markdown tables, and a pipe separator
-# split every row across the wrong fields and reported live links as missing paths.
+# Collect every `[text](target)` as `<source><TAB><line><TAB><target>`. Tabs, since the
+# links sit inside markdown tables.
 for repo in $WANTED; do
     dir="$ROOT/$repo"
     [ -d "$dir/.git" ] || continue
@@ -56,10 +42,7 @@ for repo in $WANTED; do
                 line = $0
                 while (match(line, /\[[^]]*\]\([^)[:space:]]+\)/)) {
                     m = substr(line, RSTART, RLENGTH)
-                    # To the LAST `](`, not the first `(`. A link whose TEXT contains
-                    # parentheses - "Package header (found on hardware)" - otherwise yields
-                    # everything after that inner paren as the target, and a live link is
-                    # reported as a missing path.
+                    # Up to the last `](`, since link text may hold parentheses.
                     sub(/^.*\]\(/, "", m)
                     sub(/\)$/, "", m)
                     print src "	" NR "	" m
@@ -70,7 +53,6 @@ for repo in $WANTED; do
     done
 done
 
-# --- resolve ---------------------------------------------------------------------------
 bad="$work/bad"
 : > "$bad"
 
@@ -111,10 +93,7 @@ while IFS="$(printf '	')" read -r src line target; do
     frag=""
     case "$target" in *#*) frag="${target#*#}" ;; esac
 
-    # A `_preamble.md` is a fragment, not a page: the splitters store it beside the items and
-    # replay it into the index one directory up, so its links are written for `docs/` and are
-    # wrong where the file physically sits. Resolve them from where they are used rather than
-    # skipping the file - a link the reader will actually follow still gets checked.
+    # A `_preamble.md` is replayed into the index one directory up; resolve its links there.
     srcdir="$(dirname "$ROOT/$src")"
     case "$src" in */_preamble.md) srcdir="$(dirname "$(dirname "$ROOT/$src")")" ;; esac
     if [ -z "$path" ]; then

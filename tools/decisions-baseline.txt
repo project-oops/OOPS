@@ -1,15 +1,2 @@
-# Decision-log failures that were already present when the decision gate grew a baseline.
-#
-# One key per line: `<project> <Dnnn|-> <kind>`. No line numbers, deliberately - a key that
-# moved when somebody edited the file above it would make this a maintenance burden rather
-# than a record.
-#
-# This file may only shrink. `check-decisions.sh` fails on a key that no longer fires, so a
-# fixed entry has to be dropped from here in the same change; `--update-baseline` does it.
-#
-# Most of what is here is `undated`, and that part will not shrink: none of these repositories
-# had commit history when those entries were written, so the date is unrecoverable rather than
-# missing. The `duplicate` and `out-of-order` keys in orbistoun and obscene came from two
-# sessions writing one log at once. Numbers are never reused (STYLE, decisions), so they are
-# recorded here rather than renumbered.
-
+# Known decision-log failures, one `<project> <Dnnn|-> <kind>` key per line. This file only
+# shrinks: tools/check-decisions.sh fails on a key that no longer fires (--prune-baseline).

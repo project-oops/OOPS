@@ -1,13 +1,8 @@
 -- oops-apps index: reduce an app's README to prose for the "About" panel.
 --
---  * Images are removed. They are the app's logo and screenshots, which the card already shows
---    in its gallery, and their repo-relative paths would 404 on the Pages site in any case.
---  * A heading left with nothing under it (a "Screenshot" section whose only child was an
---    image) is dropped, so no empty section titles remain.
---  * The leading level-1 title is dropped - the panel prints the app's name above this.
---  * Relative links are repointed at the repository on github.com so they still resolve.
---
--- Passed `-M appdir=<repo-relative app dir>` and `-M repo=<owner/name>` by build-apps-index.sh.
+-- Drops images (the card's gallery shows them), the leading level-1 title, and headings
+-- left empty; repoints relative links at the repository on github.com. Takes
+-- `-M appdir=<repo-relative app dir>` and `-M repo=<owner/name>` from build-apps-index.sh.
 
 function Pandoc(doc)
   local repo = doc.meta.repo and pandoc.utils.stringify(doc.meta.repo) or "project-oops/oops-apps"
@@ -16,8 +11,7 @@ function Pandoc(doc)
 
   local function has_img(text) return text:match("<%s*[iI][mM][gG]") ~= nil end
 
-  -- Collapse `a/b/../c` -> `a/c`. pandoc.path.normalize leaves `..` in place (it cannot know
-  -- the filesystem), but these are repo paths and github resolves no `..`, so do it here.
+  -- Collapse `a/b/../c` to `a/c`: github resolves no `..`, and pandoc.path.normalize keeps it.
   local function resolve(p)
     local parts = {}
     for seg in p:gmatch("[^/]+") do

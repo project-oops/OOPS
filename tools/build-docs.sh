@@ -3,15 +3,10 @@
 #
 #   tools/build-docs.sh <project-dir> <out-dir> <accent> <title>
 #
-# One implementation, one consumer per member plus the meta. Each pages.yml checks this
-# repository out and calls this, the same way obSCEne's CI already checks it out
-# for the shared gates - so the docs of all four look like one set and a change
-# to how they are rendered is made once.
-#
-# Markdown becomes HTML at build time rather than in the browser: a static page
-# needs no script, survives the GitHub API being unreachable, and is readable by
-# anything that reads HTML. Cross-document links are rewritten `.md` -> `.html`
-# so they still resolve once published.
+# Every member's pages.yml, and the root's, calls this, so all sites share one renderer.
+# pandoc renders each document at build time; links between documents are rewritten from
+# `.md` to `.html`. Non-markdown files under docs/ are copied as they sit. Mermaid is
+# loaded only on pages with a diagram.
 set -euo pipefail
 
 SRC="${1:?usage: build-docs.sh <project-dir> <out-dir> <accent> <title>}"
@@ -24,8 +19,7 @@ command -v pandoc >/dev/null 2>&1 || {
     sudo apt-get update -qq && sudo apt-get install -y -qq pandoc
 }
 
-# OOPS itself has no logo - it is the four projects rather than a fifth - so the
-# favicon is conditional rather than a link to a file that is not there.
+# The project's logo as favicon, when it has one.
 FAVICON=""
 [ -f "$SRC/assets/logo.svg" ] && FAVICON="assets/logo.svg"
 
@@ -33,8 +27,7 @@ mkdir -p "$OUT/docs"
 TEMPLATE="$(mktemp)"
 trap 'rm -f "$TEMPLATE"' EXIT
 
-# The same frame, palette and pixel face as the landing page, plus the prose
-# styles a document needs and a page of buttons does not.
+# The landing page's frame, palette and pixel face, plus prose styles.
 cat > "$TEMPLATE" <<'TEMPLATE_END'
 <!doctype html>
 <html lang="en">
@@ -96,9 +89,7 @@ th, td { border: 1px solid var(--rule); padding: 0.5em 0.8em; text-align: left; 
 th { background: #17191c; }
 hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5em 0; }
 img { max-width: 100%; }
-/* A diagram is not a code listing, so it loses the box. Before the script runs -
-   or if it never does - this shows the diagram's source, which is the honest
-   failure: readable, and obviously not what was intended. */
+/* A diagram has no code box; until mermaid runs, its source shows. */
 pre.mermaid {
   background: none; border: 0; padding: 0; text-align: center;
   color: var(--muted); overflow-x: auto;
@@ -112,8 +103,6 @@ pre.mermaid > code { font-size: 0.8rem; }
 $body$
 </div></main>
 $if(mermaid)$
-<!-- Loaded only on documents that contain a diagram, so the other ninety-odd
-     pages stay static files with no script at all. -->
 <script type="module">
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
 mermaid.initialize({
@@ -136,22 +125,15 @@ $endif$
 </html>
 TEMPLATE_END
 
-# Which group a document belongs to. The logs are last because they are the
-# project's memory rather than its manual - honest to publish, misleading to lead
-# with. Everything is published either way; only the order is a judgement.
+# A document's index group: 0 start here (docs/README.md only), 1 guide, 2 reference,
+# 3 project memory (the logs).
 group_of() {
-    # Only the top-level README is the way in. A README inside `examples/` is a
-    # note about that directory, and listing it as a starting point sends a
-    # reader to the wrong end of the documentation.
     if [ "$1" = "$SRC/docs/README.md" ]; then
         echo 0
         return
     fi
     case "$(basename "$1")" in
         DECISIONS.md | WORKLOG.md | BACKLOG.md | ROADMAP.md) echo 3 ;;
-        # Building is guide material, not reference. Left to the default it landed in
-        # "Reference" between two dozen design notes, which is where it was looked for and
-        # not found - the reason these documents were written at all.
         BUILDING.md) echo 1 ;;
         *)
             case "$1" in
@@ -175,9 +157,7 @@ while IFS= read -r md; do
     root=""
     for _ in $(seq 0 "$depth"); do root="../$root"; done
 
-    # pandoc renders a ```mermaid fence as <pre class="mermaid">, which is the
-    # hook mermaid.js already looks for - so the only thing needed is the script,
-    # and only where a diagram is.
+    # pandoc renders a ```mermaid fence as <pre class="mermaid">, which mermaid.js finds.
     mermaid=""
     grep -q '```mermaid' "$md" && mermaid="1"
 
@@ -192,10 +172,7 @@ while IFS= read -r md; do
         -V "favicon=$FAVICON" \
         --output="$dest"
 
-    # Links between documents point at the markdown; the published pages are HTML.
-    # `[^":]*` excludes anything with a scheme, so a link to a `.md` file on
-    # github.com keeps pointing at the source rather than at a page that is only
-    # published here. The delimiter is not `#`, because the pattern contains one.
+    # Relative `.md` links become `.html`; `[^":]*` leaves links with a scheme alone.
     sed -i -E 's|href="([^":]*)\.md(#[^"]*)?"|href="\1.html\2"|g' "$dest"
 
     title="$(sed -n 's/^# \(.*\)/\1/p' "$md" | head -1)"
@@ -205,16 +182,7 @@ while IFS= read -r md; do
     count=$((count + 1))
 done < <(find "$SRC/docs" -name '*.md' | sort)
 
-# Everything under docs/ that is not markdown, at the path it already sits in.
-#
-# This copied `docs/images/` and only that, by name. obSCEne keeps its figures in
-# `docs/screenshots/`, so every screenshot on its published site was a broken icon -
-# `docs/screenshots/fpps4.png` returned a 404 while the page around it rendered fine,
-# which reads as a styling fault and is not one. orbistoun's three `.txt` appendices and
-# prosperous's `manifest.schema.json` were missing the same way.
-#
-# Copying by shape rather than by name means the next directory somebody adds arrives
-# without this file needing to hear about it.
+# Everything under docs/ that is not markdown, at the same path.
 copied=0
 while IFS= read -r f; do
     rel="${f#"$SRC/docs/"}"

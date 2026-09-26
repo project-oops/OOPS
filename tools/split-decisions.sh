@@ -3,32 +3,12 @@
 #
 #   tools/split-decisions.sh oops-libs        # split, then write docs/DECISIONS.md
 #   tools/split-decisions.sh --index oops-libs   # regenerate the index only
+#   tools/split-decisions.sh --retitle oops-libs # name untitled entries, then index
+#   tools/split-decisions.sh --dry-run oops-libs # report what a split would produce
 #
-# # Why one file per decision
-#
-# Two reasons, and the second is the one that costs money today.
-#
-# **They no longer render.** orbistoun's log is 1,053,440 bytes and obSCEne's is 634,607.
-# GitHub stops rendering markdown well below that, so the durable memory these projects are
-# built around shows as "we can't show files that are this big" in the one place a visitor
-# looks.
-#
-# **Two sessions cannot append to one file without colliding.** That is where the duplicate
-# numbers and out-of-order entries come from - 83 failures at the last count, and a whole
-# subsection of the conventions ("when two sessions write the same log") written to cope with
-# it. Two sessions writing two decisions never touch the same file, so the collision class
-# disappears rather than being managed.
-#
-# Splitting is cheap here because **no citation is a link**: 6,067 references to `Dnnn` across
-# the collection and one of them is a markdown anchor. The rest are prose a reader looks up,
-# and the index is what they look it up in.
-#
-# # The status line
-#
-# Four repositories wrote it four ways - `*status: decided*`, `Status: measured.`,
-# `**decided** - 2026-08-29 - ...`, and prosperous not at all. This reads all of them and
-# writes one shape, because a status column nobody can parse is a column that stops being
-# filled in.
+# Splitting turns `## Dnnn - Title` sections of docs/DECISIONS.md into
+# docs/decisions/Dnnn-title.md, keeping the text before the first entry as `_preamble.md`.
+# The index is a table of every entry's status and date, with the preamble above it.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -49,9 +29,6 @@ for a in "$@"; do
 done
 [ -n "$project" ] || { printf 'usage: split-decisions.sh [--index|--retitle] <project>\n' >&2; exit 2; }
 
-# A rehearsal, for a log another session is writing into. Reports what the split would
-# produce and touches nothing - the two repositories that most need splitting are the two
-# it is least safe to split blind.
 if [ "$dry_run" -eq 1 ]; then
     log="$ROOT/$project/docs/DECISIONS.md"
     [ -f "$log" ] || { echo "no $log" >&2; exit 2; }
@@ -73,28 +50,18 @@ log="$repo/docs/DECISIONS.md"
 dir="$repo/docs/decisions"
 [ -d "$repo" ] || { printf 'no such project: %s\n' "$project" >&2; exit 2; }
 
-# --- split ------------------------------------------------------------------------------
 if [ "$index_only" -eq 0 ]; then
     [ -f "$log" ] || { printf 'no %s\n' "$log" >&2; exit 2; }
-    # Refuse to split a file this tool already wrote. An index has no `## Dnnn` headings, so a
-    # second split writes nothing and overwrites the index with an empty table - and the
-    # entries it was indexing are still on disk, orphaned, with no way back from the source.
+    # Splitting a generated index would overwrite it with an empty table.
     if grep -q 'This table is generated' "$log" 2>/dev/null; then
         printf 'docs/DECISIONS.md is already an index. Use --index to regenerate it.\n' >&2
         exit 2
     fi
     mkdir -p "$dir"
 
-    # One pass. Everything before the first `## Dnnn` is the log preamble and is kept beside the
-    # entries, so the index can carry it. This said "and is kept" for a while above a variable
-    # set to /dev/null, and thirteen documents across five repositories lost theirs - including
-    # a note explaining why obSCEne decisions before D026 still name deleted tools, and two
-    # explaining why undated entries are undated and must not be given invented dates.
+    # Everything before the first `## Dnnn` goes to `_preamble.md`.
     awk -v dir="$dir" -v preamble="$dir/_preamble.md" '
-        # Bodies move one directory deeper, so every relative link in them needs one more
-        # `../`. Found by splitting obSCEne milestones: `../data/hardware/ps5-full.txt` was
-        # right from docs/ and wrong from docs/milestones/, and `screenshots/x.png` stopped
-        # resolving at all.
+        # Bodies move one directory deeper, so each relative link gains a `../`.
         function relink(line,   out, rest, m, target, pre) {
             out = ""
             rest = line
@@ -112,8 +79,7 @@ if [ "$index_only" -eq 0 ]; then
             gsub(/`/, "", t)
             gsub(/[^a-z0-9]+/, "-", t)
             gsub(/^-+|-+$/, "", t)
-            # 40 characters, and never mid-word: a name ending "-none-of-" reads as though
-            # the file were truncated too.
+            # At most 40 characters, cut at a word boundary.
             if (length(t) > 40) {
                 t = substr(t, 1, 40)
                 sub(/-[^-]*$/, "", t)
@@ -137,21 +103,8 @@ if [ "$index_only" -eq 0 ]; then
         "$(find "$dir" -name 'D*.md' | wc -l)"
 fi
 
-
-# --- recover missing titles ---------------------------------------------------------------
-#
-# Four repositories wrote the *heading* two ways as well as the status line. Most entries are
-# `## Dnnn - Title`; some are a bare `## Dnnn` whose title is the bold sentence that opens the
-# body. The split read only the first shape, so the second produced nine files literally named
-# `D080-.md`, headed `# D080 - ` with the title sitting one line below, unread.
-#
-# Nothing was lost - the bold lead is still there in every one of them - but a decision you
-# cannot find by name is most of the way to a decision nobody knows about, which is the exact
-# failure the log exists to prevent.
-#
-# So the title is recovered from the lead and the file renamed. This runs after every split,
-# not only on repair: the next log written in the second shape is handled rather than
-# producing the same nine files again.
+# An entry headed by a bare `## Dnnn` splits to `Dnnn-.md`. Its title is taken from the
+# bold lead of its body (lib/recover-title.awk), and the file renamed.
 retitle() {
     local n=0 f base id title slug new
     for f in "$dir"/D*-.md; do
@@ -159,16 +112,13 @@ retitle() {
         base="$(basename "$f")"
         id="${base%%-*}"
         title="$(awk -f "$HERE/lib/recover-title.awk" "$f")"
-        # No lead to recover means the entry opens with prose. Renaming it to a slug taken
-        # from ordinary prose would read as a title somebody chose, so it keeps the empty
-        # name and check-decisions.sh keeps reporting it - visible beats tidy.
+        # With no bold lead the file keeps its empty name, and check-decisions.sh reports it.
         [ -n "$title" ] || { printf '  %s: no bold lead, left alone\n' "$base" >&2; continue; }
         slug="$(printf '%s' "$title" | tr 'A-Z' 'a-z' | tr -d '`' \
                 | sed 's/[^a-z0-9]\+/-/g; s/^-\+//; s/-\+$//' \
                 | cut -c1-40 | sed 's/-[^-]*$//')"
         new="$dir/$id-$slug.md"
         [ "$new" = "$f" ] && continue
-        # `# Dnnn - ` with nothing after it is the line to repair, and only ever line 1.
         sed -i "1s|^# ${id} - *$|# ${id} - ${title}|" "$f"
         if [ -e "$new" ]; then
             printf '  %s: %s already exists - two entries share a number\n' "$base" "$(basename "$new")" >&2
@@ -183,104 +133,33 @@ retitle() {
 retitle
 [ "$retitle_only" -eq 1 ] && index_only=1
 
-# --- index ------------------------------------------------------------------------------
-# Status is read from whatever shape the entry uses, then mapped onto one light. The word is
-# kept beside the light: a terminal or an editor without emoji fonts shows an empty box, and a
-# status column that reads as a blank is worse than no column.
-#
-# # Dates that were never written down
-#
-# Most entries carry no date - 241 of obSCEne's 285, 83 of SELFish's 87 - so a date column read
-# straight from the entries is mostly empty, which is the same as not having one.
-#
-# A position in a numbered log is itself evidence: an entry between two dated entries was
-# written between those dates. Where the two agree the day is settled, and 27 of orbistoun's 34
-# gaps are that case. Where they do not, the honest answer is the span, not a point inside it -
-# 104 of obSCEne's sit in a single `2026-08-20..2026-08-26` bracket, and picking a day out of
-# six would be exactly the invented row section 5 is about.
-#
-# So derived dates are marked `~` and never written back into the entry. The entry stays
-# undated, `check-decisions.sh` keeps reporting it, and the index shows what can be worked out
-# without dressing it up as something somebody recorded.
+# The index. Each entry's status maps onto a coloured light, with the word kept beside it.
+# An undated entry shows a date derived from its dated neighbours, marked `~` and never
+# written back into the entry.
 rows="$(mktemp)"
 trap 'rm -f "$rows"' EXIT
 
-# The status words the four repositories use, in one place because two readers below share it
-# and a vocabulary that drifted between them would light one row and not the other.
+# The status words a banner line may use.
 VOCABULARY='decided|assumed|measured|derived|proposed|scoped|reversed|superseded|withdrawn|blocked|struck|confirmed|done|hardware|published|guest-observed'
 
 for f in $(find "$dir" -name 'D*.md' | sort); do
     base="$(basename "$f")"
     id="${base%%-*}"
     title="$(sed -n '1s/^# D[0-9]* - //p' "$f")"
-    # Only the first few lines, and only a word from the known vocabulary. Reading the
-    # whole body picked `**defined**` and "would" out of ordinary prose and presented
-    # them as statuses, which is worse than recording none: an invented status is a
-    # column somebody trusts.
-    #
-    # `head -1` is not belt-and-braces. `-m1` caps *matching lines*, not matches, and `-o`
-    # prints one line per match - so a status naming two words ("decided, superseded")
-    # returned two lines, put a newline into a tab-separated field, and split one row in
-    # two. Thirty-five entries across the collection did that: a broken table row each,
-    # and a fragment with no date column, which stopped the date search below dead at
-    # the first one it met - which is why 65 of SELFish's 87 rows showed no date when a
-    # dated entry sat four rows away.
-    # **A line that DECLARES a status, not a line that contains a vocabulary word.**
-    #
-    # This read the first six lines and took any vocabulary word it found. The window was
-    # narrowed from the whole body to lines 2-6 after titles beat status lines - orbistoun's
-    # "Two walls that *hardware* cannot reach" indexed as `hardware` - and narrowing it was
-    # the wrong shape of fix, which SELFish caught by re-running the result and reading the
-    # diff: with the title excluded, an entry that has **no status line at all** falls through
-    # to whatever word appears first in its opening paragraph. SELFish D067 has no `Status:`
-    # anywhere and indexed as `hardware` off the prose "getting a package to install and launch
-    # **on hardware**".
-    #
-    # Widening or narrowing the window cannot fix that, because the defect is not where it
-    # looks - it is what it matches. So it now anchors on the declaration: an optional `**`,
-    # then `Status`, then a colon. An entry with no such line is `unrecorded`, which is the
-    # honest answer for SELFish's D022, D034 and D067 alike and needs no window.
-    #
-    # Four repositories write the declaration four ways; the pattern takes all four. See the
-    # header note on the shapes.
-    #
-    # `head -1` is not belt-and-braces: `-m1` caps matching *lines*, not matches, and `-o`
-    # prints one per match, so "decided, superseded" put a newline in a tab-separated field
-    # and split one row in two.
-    # Two shapes declare a status, and prose is neither.
-    #
-    # **Labelled**, anywhere in the file: `Status: decided`, in any of the four repositories'
-    # spellings. The emphasis characters come off first, so `**Status:**`, `*status:*` and
-    # `Status:` are one shape by the time the pattern sees it.
-    #
-    # **Banner**, in the header only: a line that *begins* with an emphasised vocabulary word -
-    # orbistoun's early `**decided** · 2026-08-19`, and SELFish's `> **Superseded by D071.**`.
-    # Both are real declarations with no label, and dropping them would put dozens of settled
-    # entries under `unrecorded` and hide a superseded one.
-    #
-    # Emphasis is what separates the banner from prose, and the window is the second guard: a
-    # paragraph opening `**Measured on hardware:**` is a sentence, not a status, and the header
-    # is where a banner actually lives.
+    # A status is declared by a `Status: <word>` line anywhere (emphasis stripped first), or
+    # by a banner: a line in the header that begins with an emphasised vocabulary word.
+    # Anything else is `unrecorded`. `head -1` everywhere, since `-o` prints one line per
+    # match and a second match would split the row.
     labelled="$(sed 's/[*_]//g' "$f" \
                 | sed -n -E 's/^[[:space:]]*[Ss]tatus[[:space:]]*:[[:space:]]*([A-Za-z][A-Za-z-]*).*/\1/p' \
                 2>/dev/null | head -1 || true)"
-    # From line 2, because line 1 is the title and a title is prose with a `#` in front of it.
-    # Restricted to the vocabulary, unlike the labelled form: a labelled line has *said* it is a
-    # status and an unfamiliar word there is worth showing, whereas a bold word at the start of a
-    # header line is only a status if it is one of these.
     banner="$(sed -n '2,6p' "$f" \
               | sed -n -E "s/^[[:space:]]*(>[[:space:]]*)?[*_]{1,2}($VOCABULARY)\b.*/\2/Ip" \
               2>/dev/null | head -1 || true)"
     status="$(printf '%s' "${labelled:-$banner}" | tr 'A-Z' 'a-z')"
-    # Same trap as the status line, and it bit here too: "decided - 2026-08-19, revised
-    # 2026-08-20" is one line with two matches, so `-o` returned both and the field carried
-    # a newline. Two orbistoun decisions vanished from their own index that way.
     date="$(grep -m1 -oE '20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' "$f" 2>/dev/null | head -1 || true)"
     case "$status" in
-        # `published` and `guest-observed` are orbistoun's own provenance grades: a fact with a
-        # source that is not this project's own measurement. Green because only `assumed` is the
-        # one its CLAUDE.md flags for review - the others are settled, differing in *whose*
-        # evidence rather than in whether there is any.
+        # `published` and `guest-observed` are orbistoun's provenance grades, and settled.
         decided|measured|derived|done|hardware|confirmed|published|guest-observed) light='🟢' ;;
         assumed|proposed|scoped|open)                     light='🟡' ;;
         reversed|superseded|withdrawn|blocked|struck)     light='🔴' ;;
@@ -290,10 +169,7 @@ for f in $(find "$dir" -name 'D*.md' | sort); do
 done
 
 {
-    # The log preamble, replayed. It carries what the log says about itself - "read this at the
-    # start of any working session", why entries before D026 still name deleted tools, why the
-    # undated ones are undated - and a generated header cannot reconstruct any of it. Where a
-    # log has none, the generic line below stands in.
+    # The preamble, or a generic heading when there is none.
     if [ -s "$dir/_preamble.md" ]; then
         cat "$dir/_preamble.md"
         printf '\n'
@@ -308,12 +184,10 @@ done
     printf '|---|---|---|---|---|\n'
 
     awk -F'\t' '
-        # A row is six fields. Anything else means a field carried a tab or a newline, and
-        # indexing by NR would leave a hole that reads as "no date recorded" - the failure
-        # above, silently. Count good rows separately and say so.
+        # A row is six fields; any other row is reported and skipped.
         NF != 6 { print "index: row " NR " has " NF " fields, not 6 - skipped" > "/dev/stderr"; next }
         { m++; light[m]=$1; id[m]=$2; title[m]=$3; base[m]=$4; status[m]=$5; date[m]=$6 }
-        # A range reads better without saying 2026 twice, and the year is still there once.
+        # A date range, with a shared year written once.
         function span(lo, hi) {
             if (substr(lo,1,5) == substr(hi,1,5)) return lo ".." substr(hi,6)
             return lo ".." hi

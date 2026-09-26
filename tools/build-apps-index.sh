@@ -3,30 +3,12 @@
 #
 #   tools/build-apps-index.sh <apps-dir> <out-dir> <accent>
 #
-# One implementation, one consumer, the same shape as build-docs.sh: oops-apps' pages.yml
-# checks this repository out and calls this, so the index is generated here and never
-# hand-kept. It writes the index to <out-dir> as the site root; build-docs.sh renders the
-# documentation into <out-dir>/docs beside it.
-#
-# **The listing is the repository, not a table somebody maintains.** The apps are discovered
-# with `bin/oops-apps list`, each one's card is built from its own `app.env` and `README.md`,
-# and its screenshots are whatever it ships under `assets/` and `docs/screenshots/`. A new app,
-# a new screenshot or a changed subtitle appears the next time the site builds, with nothing to
-# edit here.
-#
-# **An app is listed when it ships a title.** The rule is `FORMATS` contains `title`: that is
-# exactly the set that produces a downloadable `<app>-title-<gen>.zip` in the release, which is
-# what a person (or the on-device downloader) installs. A payload or a bare-ELF probe ships no
-# title and is not something to install from here, so it does not appear.
-#
-# **Cards are grouped by KIND** - game, demo, probe, utility - taken from `app.env`'s `KIND`
-# field, or inferred from the app's directory group when it is unset. This is deliberately not
-# `TITLE_CATEGORY`, which is the platform's packaging category (`big-app`), a different thing.
-#
-# **What can go stale is fetched live, not baked.** Card media and descriptions are rendered in
-# at build time so the page is readable with no network. The download buttons are the one thing
-# that moves on every push to main, so they are resolved in the browser from the rolling
-# `latest-main` release rather than frozen into the page - see apps-index/index.js.
+# Called by oops-apps' pages.yml; writes the site root to <out-dir>, beside the docs that
+# build-docs.sh renders into <out-dir>/docs. Apps come from `bin/oops-apps list`; one is
+# listed when its app.env `FORMATS` contains `title`. Each card is built from the app's
+# app.env, README.md, `assets/` and `docs/screenshots/`, and grouped by `KIND` (inferred
+# from the directory group when unset). Download links are resolved in the browser from
+# the `latest-main` release (apps-index/index.js).
 set -euo pipefail
 
 SRC="${1:?usage: build-apps-index.sh <apps-dir> <out-dir> <accent>}"
@@ -38,9 +20,7 @@ TEMPLATE_DIR="$HERE/apps-index"
 
 SRC="$(cd "$SRC" && pwd)"
 
-# The same two tools build-docs.sh leans on, installed the same way if the runner lacks them.
-# jq builds the data island without a single hand-escaped quote; pandoc turns each README into
-# the HTML the detail panel shows.
+# jq builds the data; pandoc renders each README. Installed if the runner lacks them.
 need() {
     command -v "$1" >/dev/null 2>&1 && return 0
     echo "build-apps-index: $1 not found, installing" >&2
@@ -55,15 +35,12 @@ records="$(mktemp)"
 trap 'rm -f "$records"' EXIT
 
 emit_media() {
-    # Copy one app's presentable media into the site and print a JSON array of {type,src}.
-    # Globs, so the set is whatever the app ships - nothing here names a file.
+    # Copy one app's media into the site and print a JSON array of {type,src}.
     local app="$1" dir="$2" destrel="media/$1" dest="$OUT/media/$1"
     local -a items=()
     local f base
     mkdir -p "$dest"
-    # The demo, in **one** format only, video preferred. An app that ships both `demo.webm` and
-    # `demo.gif` is shipping the same clip twice, and showing both is the duplicate a reader
-    # notices.
+    # The demo clip, in one format only, video preferred.
     for f in "$dir"/assets/demo.webm "$dir"/assets/demo.mp4 "$dir"/assets/demo.gif; do
         [ -f "$f" ] || continue
         base="$(basename "$f")"
@@ -101,9 +78,8 @@ emit_icon() {
 }
 
 render_desc() {
-    # The README as an HTML fragment of prose - the readme-prose.lua filter drops the title, the
-    # images (the card's gallery already shows them) and any heading left empty, and repoints
-    # relative links at github. `appdir` is the app's path inside the repo, for those links.
+    # The README as an HTML fragment (see readme-prose.lua). `appdir` is the app's path in
+    # the repository, for its relative links.
     local readme="$1" appdir="$2"
     [ -f "$readme" ] || { echo ""; return 0; }
     pandoc -f gfm -t html \
@@ -111,9 +87,7 @@ render_desc() {
         --lua-filter="$TEMPLATE_DIR/readme-prose.lua" "$readme" 2>/dev/null
 }
 
-# A title-shipping app's kind, for grouping. `KIND` in app.env wins; otherwise it is inferred
-# from the directory group, which is how the apps are already organised. Kept as inference
-# rather than a hardcoded per-app list so a new app lands in the right group on its own.
+# An app's kind when app.env sets no `KIND`, from its name and directory group.
 infer_kind() {
     local group="$1" app="$2"
     case "$app" in
@@ -132,10 +106,8 @@ infer_kind() {
 # Whitespace-separated word membership: does FORMATS contain `title`?
 has_word() { case " $1 " in *" $2 "*) return 0 ;; *) return 1 ;; esac; }
 
-# Read one `KEY=value` field from an app.env. **Parsed, not sourced**: `FORMATS=elf eboot title`
-# is a perfectly good make value but invalid shell (sourcing it sets FORMATS=elf and runs
-# `eboot title`), which silently dropped every multi-format app from the index until this was a
-# parse. Strips one layer of surrounding double quotes; ignores comment lines.
+# One `KEY=value` field of an app.env, without one layer of double quotes. Parsed, not
+# sourced: app.env is make syntax, and `FORMATS=elf eboot title` is not valid shell.
 ae_get() {
     local v
     v="$(grep -m1 -E "^$2=" "$1" 2>/dev/null | cut -d= -f2-)"
@@ -158,10 +130,7 @@ while IFS= read -r app; do
     group="$(basename "$(dirname "$dir")")"
     kind="$(ae_get "$env" KIND)"; kind="${kind:-$(infer_kind "$group" "$app")}"
 
-    # Readiness, for the "worth trying" badge - orthogonal to KIND. `playable` works end to end,
-    # `experimental` runs but is rough or incomplete, `wip` is not expected to work yet. Unset is
-    # `experimental` (neither claimed nor condemned), and an unknown value fails the build, so the
-    # vocabulary stays a fixed set the badge and the filter can rely on.
+    # Readiness badge: playable, experimental (the default) or wip; anything else fails.
     status="$(ae_get "$env" STATUS)"; status="${status:-experimental}"
     case "$status" in
         playable|experimental|wip) ;;
@@ -172,8 +141,6 @@ while IFS= read -r app; do
     subtitle="$(ae_get "$env" APP_SUBTITLE)"
     version="$(ae_get "$env" TITLE_VERSION)"
 
-    # The app's own directory inside the repo - used both to repoint the README's relative links
-    # (render_desc) and to link the card back to the source on GitHub.
     appdir="${dir#"$SRC"/}"
 
     icon="$(emit_icon "$app" "$dir")"
@@ -202,14 +169,12 @@ done < <("$SRC/bin/oops-apps" list)
     printf ';\n'
 } > "$OUT/apps.js"
 
-# The same catalogue as plain JSON, so a machine - the on-device oops-app-downloader above all -
-# can read the app list without scraping the page. Its download URLs still come from the live
-# release (matched by the `<app>-` filename prefix), so nothing here goes stale.
+# The catalogue as JSON, for the on-device downloader.
 jq -s 'sort_by(.title)' "$records" > "$OUT/apps.json"
 
 cp "$TEMPLATE_DIR/index.html"  "$OUT/index.html"
 cp "$TEMPLATE_DIR/index.css"   "$OUT/index.css"
 cp "$TEMPLATE_DIR/index.js"    "$OUT/index.js"
-cp "$TEMPLATE_DIR/favicon.svg" "$OUT/favicon.svg"   # the OOPSy-daisy daisy, as the site icon
+cp "$TEMPLATE_DIR/favicon.svg" "$OUT/favicon.svg"
 
 echo "build-apps-index: $(jq -s 'length' "$records") apps -> $OUT"

@@ -1,52 +1,18 @@
 #!/usr/bin/env bash
-# One compiler across the collection, and every repository says the same number.
+# Every C repository pins the same clang major (oops-mesa#D013).
 #
 #   tools/check-toolchain.sh
 #
-# # Why this gate exists
-#
-# Until 2026-09-21 the pin was ambient. `oops-sdk/Makefile`, `obscene/Makefile` and
-# `oops-apps/common/app.mk` all said bare `CC := clang`, and `oops-mesa/toolchain/Dockerfile`
-# said `FROM silkeh/clang:18`. So the same source built with clang 21 under WSL `oops-builder`
-# and clang 18 under Docker, and which one you got depended on where you were standing. Nothing
-# in the tree preferred either, and three documents asserted a pin that no build enforced.
-#
-# The per-repository fix is `toolchain.mk`, which refuses to build against the wrong major.
-# That makes each repository internally honest and does nothing about the repositories
-# disagreeing with *each other*, which is the failure that actually happened. This gate is the
-# other half: it reads every pin the collection declares and fails when they are not one
-# number. (oops-mesa#D013)
-#
-# # Where a pin is allowed to live
-#
-# Two shapes, because the two runners are genuinely different things:
-#
-#   * `<repo>/toolchain.mk`, as `OOPS_CLANG_MAJOR := N`   - repositories that compile directly
-#   * `oops-mesa/toolchain/Dockerfile`, as `FROM silkeh/clang:N` - the container is that
-#     repository's runner, so its tag *is* its pin and a `toolchain.mk` beside it would be a
-#     second place to be wrong
-#
-# # A repository with no pin is a finding, not a pass
-#
-# The whole defect was a pin nobody enforced, so "this one declares nothing" must be louder
-# than "this one declares 21", not quieter. An unpinned repository that compiles is reported
-# and fails the gate. `tools/check-decisions.sh` set this precedent: it failed on the tree it
-# was written against, because the defects were already there.
+# A pin is `OOPS_CLANG_MAJOR := N` in `<repo>/toolchain.mk`, which some Makefile must
+# include, or `FROM silkeh/clang:N` in `<repo>/toolchain/Dockerfile` for a repository whose
+# runner is that container. A C repository with no pin fails, as does more than one major.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$HERE")"
 
-# The repositories that compile C or C++ and therefore owe a pin. The Rust-only members
-# (prosperous, selfish, oops-libs) are not here: they are pinned by `rust-toolchain` and this
-# gate would have nothing to read.
-#
-# **orbistoun is excluded on purpose and is not Rust-only.** It pins `silkeh/clang:18` as the
-# *reference* toolchain that reproduces its committed shader fixtures, where the version is part
-# of the expected output rather than a means to it - LLVM 18 and 19 already disagree about the
-# first word of every compute fixture. Checking it here would report a deliberate decision as
-# drift and invite somebody to "fix" it. The reasoning is `orbistoun#D681`, which names this
-# gate back.
+# The repositories that compile C or C++. orbistoun's clang 18 is the reference toolchain
+# for its shader fixtures, independent of the build compiler (orbistoun#D681).
 PROJECTS="obscene oops-sdk oops-apps oops-mesa"
 
 fail=0
@@ -63,8 +29,7 @@ for proj in $PROJECTS; do
     dockerfile="$dir/toolchain/Dockerfile"
 
     if [ -f "$mk" ]; then
-        # The assignment, not a mention of it: `grep OOPS_CLANG_MAJOR` also matches the prose
-        # above the assignment in every one of these files.
+        # The assignment only, not comments that mention it.
         major="$(sed -n 's/^OOPS_CLANG_MAJOR[[:space:]]*:=[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$mk" | head -1)"
         if [ -z "$major" ]; then
             bad "$proj: toolchain.mk exists but declares no 'OOPS_CLANG_MAJOR := <n>'"
@@ -73,8 +38,7 @@ for proj in $PROJECTS; do
         pins["$proj"]="$major"
         note "$proj: clang $major (toolchain.mk)"
 
-        # A pin file nothing includes is the "definition nothing calls" failure: it passes
-        # every gate and changes no build. Prove something reaches it.
+        # A pin file no Makefile includes pins nothing.
         if ! grep -rqF 'toolchain.mk' --include='Makefile' --include='*.mk' "$dir" \
              --exclude='toolchain.mk'; then
             bad "$proj: toolchain.mk is included by no Makefile, so it pins nothing"
@@ -94,8 +58,7 @@ for proj in $PROJECTS; do
     fi
 done
 
-# One number, or name every distinct one. Printing the set rather than "they differ" is what
-# makes the message actionable without a second command.
+# One number, or list every repository's pin.
 if [ "${#pins[@]}" -gt 0 ]; then
     distinct="$(printf '%s\n' "${pins[@]}" | sort -u)"
     if [ "$(printf '%s\n' "$distinct" | wc -l)" -ne 1 ]; then

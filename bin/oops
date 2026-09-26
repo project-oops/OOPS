@@ -1,73 +1,38 @@
 #!/usr/bin/env bash
-# oops - one entry point for the collection: four projects and three shared repositories.
-#
-# Every project carries its own `bin/<project>` with the same verbs, and this relays to it.
-# So `oops test selfish` and `selfish/bin/selfish test` are one command reached two ways,
-# and this script knows nothing about how any project builds - which is the point. It used
-# to hold a table mapping four verbs onto four projects' internals, and a table that has to
-# know what `make check` means in obSCEne is a second copy of obSCEne's build, kept
-# somewhere obSCEne's authors will never look.
-#
-# The verbs are the same everywhere. What differs is only what a project adds beyond them:
-# `oops pkg` exists because obSCEne ships a package, and orbistoun's own entry point carries
-# `run`, `doctor` and `sweep`, which are the emulator rather than its build.
+# oops - the collection's entry point.
 #
 #   oops build  [project...]      build artefacts
 #   oops test   [project...]      run tests
 #   oops lint   [project...]      lints at -D warnings
 #   oops fmt    [project...]      format in place
-#   oops check  [project...]      each project's own full gate - what its CI runs
+#   oops check  [project...]      each project's full gate, as its CI runs it
 #   oops clean  [project...]      remove build output
 #   oops doc    [project...]      build the API docs
-#   oops pkg                      obSCEne's installable package. The variants are
-#                                 make targets: oops exec "make pkg-min" obscene
-#   oops gates                    the meta-level checks: decision logs, markdown
-#                                 links, the child repositories' workflow preambles,
-#                                 and the house dash style
-#   oops all                      gates + check across the collection. The whole thing.
-#   oops bootstrap [project...]   fetch the members, or only the ones named. What CI
-#                                 uses: clone the meta without submodules, then
-#                                 ask for what that job actually builds.
-#   oops git <args...>            run git across the meta and every member. Any verb -
-#                                 `oops git status -s`, `oops git remote -v`.
-#   oops status                   branch and working-tree state, meta + members
-#   oops doctor                   is this machine able to build the collection
-#   oops setup                    make it able to: WSL, the Ubuntu distribution, and
-#                                 the toolchain inside it. tools/setup-wsl.sh
-#   oops exec "<cmd>" [proj...]   run an arbitrary command in each project
-#   oops list                     the members, where they are, whether present
-#   oops tracer <titleid>         capture a title's shaders off hardware and rank the
-#                                 translator's gaps. Builds the tracer payload (app.mk),
-#                                 launches the title and injects the tracer through
-#                                 prosperous, pulls the dumps, and runs orbistoun's shader
-#                                 census over them - one canonical path from a title id to a
-#                                 coverage worklist, using only first-party tools. Options:
-#                                 -s <seconds>, -t <target>, --out <dir>, --no-ingest,
-#                                 --keep-open. The pulled shaders are the title's own
-#                                 bytecode: a local yardstick, never committed.
+#   oops pkg                      obSCEne's package; variants are make targets:
+#                                 oops exec "make pkg-min" obscene
+#   oops gates                    the collection gates (tools/check-*.sh)
+#   oops all                      gates, then check in every member
+#   oops bootstrap [project...]   fetch the members, or the named ones and their deps
+#   oops git <args...>            run git in the root and every member
+#   oops status                   branch and working-tree state of each repository
+#   oops doctor                   whether this machine can build the collection
+#   oops setup                    install WSL and the toolchain (tools/setup-wsl.sh)
+#   oops exec "<cmd>" [proj...]   run a command in each project
+#   oops list                     the members and whether each is present
+#   oops tracer <titleid>         capture a title's shaders on hardware and rank the
+#                                 translator's gaps; -s <seconds>, -t <target>,
+#                                 --out <dir>, --no-ingest, --keep-open
 #
-# Projects are named in full or by prefix, so `oops build orb` is `oops build
-# orbistoun`. Omit the project to mean every member.
-#
-# A failing project does not stop the others. Failures are collected and reported
-# at the end and the exit code is non-zero if anything failed, so one run tells
-# you everything that is broken rather than only the first thing.
-#
-# Cross-platform bash: Linux, macOS, and Git Bash on Windows. The C repositories - obSCEne,
-# oops-sdk and oops-apps - need clang and lld, which on Windows means WSL; this detects
-# that and re-enters through WSL rather than failing with a compiler error that reads as a
-# code fault. Set OOPS_NO_WSL=1 to refuse instead of delegating.
+# Each verb relays to `<project>/bin/<project>`; this script knows nothing about how a
+# project builds. Projects are named in full or by prefix; none means every member. A
+# failing project does not stop the others, and the exit code is non-zero if any failed.
+# The C repositories need clang and lld; on Windows without them this re-enters through
+# WSL, unless OOPS_NO_WSL=1.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$HERE")"
-# The last three are not projects, which is why they come last and why the README still calls
-# OOPS four. `oops-libs` is the Rust the host-side tools share and `oops-sdk` the freestanding
-# C the target-side payloads share - both here because the four depend on them, so a change
-# that breaks a consumer is caught by the same command that checks the consumers. `oops-apps`
-# is the homebrew built on `oops-sdk`; it depends on the collection rather than being depended
-# on, and it is swept for the same reason a consumer is - a change to the SDK that breaks an
-# app should show here.
+# The four projects, then the shared repositories they depend on or that build on them.
 PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk oops-apps oops-mesa"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -87,37 +52,22 @@ is_windows() {
     esac
 }
 
-# The C repositories need clang and lld. Under Git Bash there is usually neither, so
-# re-enter through WSL rather than emitting a compiler error that reads as a code fault.
-# obscene/CLAUDE.md documents why the split exists at all.
+# True under Git Bash with no clang: the C repositories then build through WSL.
 needs_wsl() {
     is_windows || return 1
     command -v clang >/dev/null 2>&1 && return 1
     return 0
 }
 
-# Which repositories compile C for the target. obSCEne was the only one when the WSL
-# detour was written and `run_in` named it directly; oops-sdk and oops-apps build the
-# same way, and a check that knew only obSCEne handed them to a shell with no `make` in
-# it, where the failure reads as a missing program rather than the missing toolchain it
-# is.
+# The repositories that compile C for the target.
 builds_c() {
     case "$1" in obscene|oops-sdk|oops-apps|oops-mesa) return 0 ;; *) return 1 ;; esac
 }
 
-# The WSL distributions a person could build in, one per line, empty if there are none.
-#
-# `wsl --list --quiet` prints nothing at all when WSL is installed with no distribution - the
-# "no installed distributions" text goes nowhere a pipe can read - so an empty answer is the
-# test rather than a string to match. `tr` strips the UTF-16 padding from a real one.
-#
-# **A container runtime's own distributions are not distributions for this purpose.** Docker
-# Desktop registers `docker-desktop` on the WSL2 backend, Rancher and podman the same under
-# their own names, and they are appliances rather than anywhere a toolchain goes. Left in,
-# installing Docker Desktop would make `doctor` report that the C repositories can be built
-# here, on a machine where nothing has changed about whether they can. tools/setup-wsl.sh
-# filters the same names, and both are written out rather than shared because that script has
-# to run on a machine where this one has never worked.
+# The WSL distributions a toolchain can go in, one per line; empty when there are none.
+# `tr` strips the UTF-16 padding. Container runtimes' own appliance distributions (Docker
+# Desktop, Rancher, podman) are excluded; tools/setup-wsl.sh keeps the same filter, since it
+# runs on machines where this script cannot.
 wsl_distros() {
     MSYS_NO_PATHCONV=1 wsl.exe --list --quiet 2>/dev/null | tr -d '\r\0' |
         sed '/^[[:space:]]*$/d' |
@@ -126,22 +76,12 @@ wsl_distros() {
 
 # The distribution to build in, in order of preference:
 #
-#   1. WSL_DISTRO, when somebody has said outright which one they mean
-#   2. `oops-builder`, the one `oops setup` makes - a distribution of the collection's own so
-#      that installing a toolchain never touches an Ubuntu somebody else set up and is using
-#   3. WSL's own default, but only when that is one a person could build in
+#   1. WSL_DISTRO
+#   2. `oops-builder`, the distribution `oops setup` creates
+#   3. WSL's default, when it is a usable one (Docker Desktop can be the default)
 #   4. the first usable one
 #
-# **Never simply the default.** Docker Desktop registers `docker-desktop` on the WSL2 backend
-# and becomes the default on a machine that had no other, which is what happened on the
-# machine this was written on: `wsl --list` showed `* docker-desktop` beside a working
-# builder. Passing no `-d` would send every C build into Docker's Alpine appliance to fail on
-# a missing compiler, naming no Linux at all.
-#
-# tools/setup-wsl.sh picks by the identical rule and says so. They are separate copies -
-# that script has to run on a machine where this one has never worked - and if they ever
-# disagreed, `setup` would install the toolchain into one distribution and every build would
-# look for it in another.
+# tools/setup-wsl.sh picks by the same rule, so setup and builds use one distribution.
 wsl_target() {
     if [ -n "${WSL_DISTRO:-}" ]; then printf '%s' "$WSL_DISTRO"; return 0; fi
     local marked usable ours="${OOPS_WSL_NAME:-oops-builder}"
@@ -159,16 +99,8 @@ wsl_target() {
     printf '%s\n' "$usable" | head -1
 }
 
-# Does that distribution actually carry the compiler?
-#
-# A distribution existing is not a toolchain, and `doctor` reporting readiness on the strength
-# of one is the plausible wrong answer conventions section 3 refuses - a freshly installed
-# Ubuntu has no clang, and that is the state a machine is in for the whole gap between
-# `oops setup` registering it and the toolchain landing in it.
-#
-# Bounded, because a distribution part-way through its first run blocks every call to it: an
-# unanswered `wsl --install` username prompt wedges the lot, and a `doctor` that hangs is
-# worse than one that is wrong.
+# Whether a distribution has clang. Time-bounded: a distribution waiting at its first-run
+# username prompt blocks every call to it.
 wsl_has_clang() {
     local t=""
     command -v timeout >/dev/null 2>&1 && t="timeout 20"
@@ -180,41 +112,23 @@ run_via_wsl() {
     local dir="$1"; shift
     [ -n "${OOPS_NO_WSL:-}" ] && die "this needs clang and lld; the shell has neither and OOPS_NO_WSL is set"
     command -v wsl.exe >/dev/null 2>&1 || die "this needs clang and lld. Install WSL, or run this from Linux"
-    # Which distribution, before anything is translated for it. `WSL_DISTRO` names one - the
-    # variable obscene's own scripts read - and unset, `wsl_target` picks by the rule above.
     local distro
     distro="$(wsl_target)"
     [ -n "$distro" ] || die "no WSL distribution to build in. ./bin/oops setup installs one"
 
-    # `cygpath -m` and not `-w`: the backslashes in a `C:\...` path are eaten
-    # before wslpath ever sees them, and it silently answers "C:gitOOPSobscene"
-    # rather than failing. The forward-slash form survives the trip.
-    #
-    # **`-d "$distro"`, and this is not decoration.** Windows drives are not mounted at the
-    # same place in every distribution and `wslpath` answers for whichever one it is asked.
-    # Without `-d` that is WSL's default, which on this machine is Docker Desktop's appliance,
-    # and it mounts them under `/mnt/host/c` rather than `/mnt/c`. The answer comes back
-    # perfectly correct for a distribution nothing is going to run in, and the build then
-    # reports `No such file or directory` for a directory that is plainly there.
+    # `cygpath -m`, since wslpath loses the backslashes of `-w` output. `-d "$distro"`,
+    # since each distribution mounts the Windows drives in its own place.
     local wpath
     wpath="$(MSYS_NO_PATHCONV=1 wsl.exe -d "$distro" wslpath -a "$(cygpath -m "$dir")" 2>/dev/null | tr -d '\r\0')"
-    # Fall back to the default mount root. wslpath is preferred because it honours
-    # a non-default `root =` in wsl.conf, which this cannot know about.
+    # Fall back to the default mount root; wslpath honours a `root =` in wsl.conf.
     case "$wpath" in
         /*) ;;
         *) wpath="$(printf '%s' "$dir" | sed 's|^/\([a-zA-Z]\)/|/mnt/\1/|')" ;;
     esac
     [ -n "$wpath" ] || die "could not translate $dir into a WSL path"
     note "via WSL: $distro:$wpath"
-    # MSYS_NO_PATHCONV, or Git Bash rewrites the `/mnt/c/...` argument on its way
-    # to a Windows executable and wsl.exe is handed
-    # `C:/Program Files/Git/mnt/c/...`. It then fails with ERROR_PATH_NOT_FOUND
-    # for a directory that exists, having never been asked about the real one.
-    # `. ~/.cargo/env` because a login shell in WSL does not necessarily have
-    # rustup's bin directory on PATH, and a distro-packaged /usr/bin/cargo then
-    # shadows it. That cargo is old enough to refuse a version-4 lock file, and it
-    # says so as a lock-file parse error rather than as a version problem. This is
-    # rustup's own file, not a guess at what it does.
+    # MSYS_NO_PATHCONV stops Git Bash rewriting `/mnt/c/...` into a Windows path.
+    # `~/.cargo/env` puts rustup's cargo ahead of an older distribution-packaged one.
     MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' wsl.exe -d "$distro" --cd "$wpath" -- \
         bash -lc 'if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi; '"$*"
 }
@@ -268,36 +182,12 @@ resolve() {
     printf '%s' "${out# }"
 }
 
-# How a verb reaches a project.
-#
-# **Every project owns its own entry point**, `<project>/bin/<project>`, carrying the same
-# verbs as this script. So this relays rather than knowing anything: how obSCEne builds is
-# obSCEne's business, and a table here that also knew would be a second copy to drift.
-#
-# `bash ./bin/x` rather than `./bin/x` on purpose - Windows checkouts do not preserve the
-# executable bit, and a relay that works everywhere except the machine most of this is
-# written on is not much of a relay.
+# The command that runs a verb in a project: its own `bin/<project>`. Through `bash`,
+# because Windows checkouts drop the executable bit.
 cmd_for() {
     local proj="$1" verb="$2"
-    if [ -f "$ROOT/$proj/bin/$proj" ]; then
-        printf 'bash ./bin/%s %s' "$proj" "$verb"
-        return 0
-    fi
-    # The fallback, for a project that has not grown an entry point yet. All seven have one
-    # now - oops-apps was the last, so nothing reaches this today. Kept, and deliberately
-    # generic rather than a per-project table: a table listing projects that all have their
-    # own script is dead code that still looks authoritative.
-    [ -f "$ROOT/$proj/Cargo.toml" ] || return 1
-    case "$verb" in
-        build) echo "cargo build --release --workspace" ;;
-        test)  echo "cargo test --workspace" ;;
-        lint)  echo "cargo clippy --all-targets -- -D warnings" ;;
-        fmt)   echo "cargo fmt --all" ;;
-        check) echo "cargo fmt --all --check && cargo clippy --all-targets -- -D warnings && cargo test --workspace" ;;
-        clean) echo "cargo clean" ;;
-        doc)   echo "cargo doc --no-deps --workspace" ;;
-        *) return 1 ;;
-    esac
+    [ -f "$ROOT/$proj/bin/$proj" ] || return 1
+    printf 'bash ./bin/%s %s' "$proj" "$verb"
 }
 
 verb_over_projects() {
@@ -310,15 +200,8 @@ verb_over_projects() {
     report
 }
 
-# Proxy any git verb across the meta and every member, rather than hardcoding a list
-# of the ones somebody thought of. `oops git status -s`, `oops git log --oneline
-# -1`, `oops git remote -v` all work without this script knowing what they mean.
-#
-# Deliberately NOT `git submodule foreach`: that runs only in submodules, so it
-# skips the meta repo - and before the four are published they are ordinary
-# directories rather than submodules, where it would find nothing at all. Walking
-# the checkouts works identically either way. `bootstrap` is where being a
-# submodule actually matters, and that is the one place it is used.
+# Any git command in the root and every member. Not `git submodule foreach`, which skips
+# the root and any member cloned as a plain directory.
 git_proxy() {
     [ "$#" -ge 1 ] || die 'git needs arguments: oops git status -s'
     local d name
@@ -331,32 +214,9 @@ git_proxy() {
     report
 }
 
-# What each project needs checked out beside it, by path dependency. Not a guess:
-# these are the `path = "../..."` entries in the Cargo.toml files, and a build
-# without them fails as a missing directory rather than as a missing dependency.
-#
-# **Every project takes oops-libs, and by now most take SELFish too.** That was not
-# true when this table was written - prosperous was the only consumer, and selfish
-# and orbistoun were listed as needing nothing. The manifests kept moving and this
-# table kept lagging: first all four grew `../oops-libs`, then prosperous grew a
-# real `../selfish/crates/selfish-title` for its param.sfo reader and orbistoun grew
-# `../selfish/...` dev-dependencies for the D653 differential - and each time
-# `oops bootstrap <that project>` fetched too little and the build failed on a
-# missing directory rather than a missing dependency, which is the exact error this
-# table exists to prevent. A table updated by hand when a manifest changes will keep
-# doing this; it is written down anyway because the alternative is parsing every
-# manifest before any of them are checked out.
-#
-# orbistoun's SELFish edge is dev-only, so `oops build orbistoun` does not need it -
-# but `oops check` runs `cargo test` and `clippy --all-targets`, which do, so
-# bootstrap fetches it. oops-libs depends on nothing, which is what makes it the
-# safe common leaf.
-#
-# oops-apps grew its oops-mesa edge the same way the table's comment above describes.
-# Four apps live under `src/oops-mesa/` and set `USE_MESA=1`, and `common/app.mk:114`
-# refuses without the sibling - so `oops-apps build` stopped dead at `mesa-cube` and
-# four of the release's matrix cells failed every run. The edge is real and was simply
-# missing; oops-mesa itself builds against oops-sdk, which is why it carries that.
+# The siblings each project needs checked out beside it: the `path = "../..."` entries of
+# its manifests (Cargo.toml, Makefile, app.mk), dev-dependencies included because `check`
+# builds tests. Update it when a manifest gains a sibling path.
 deps_for() {
     case "$1" in
         obscene)    echo "selfish prosperous oops-libs oops-sdk" ;;
@@ -383,12 +243,8 @@ with_deps() {
     printf '%s' "$out"
 }
 
-# The published repository name for a project directory.
-#
-# Two spellings for one thing, and the cost is paid here rather than everywhere else.
-# The directories are lower-case because obSCEne's Makefile resolves `../selfish/...`
-# in that case and a path on a Linux runner is not case-insensitive; the repositories
-# are spelled the way the projects are. docs/PUBLISHING.md pairs them too.
+# The published repository name for a project directory. Directories are lower-case,
+# as sibling paths are case-sensitive on Linux; repositories use the project spelling.
 repo_name() {
     case "$1" in
         orbistoun)  echo "Orbistoun" ;;
@@ -403,12 +259,8 @@ repo_name() {
     esac
 }
 
-# Who to clone siblings from, when there is nothing local to clone them from.
-#
-# Asked of the meta repository's own origin rather than hardcoded, so a fork bootstraps
-# from the fork. `actions/checkout` always sets an origin, which is why CI needs no
-# configuration for this. OOPS_OWNER overrides, for a checkout with no remote - which is
-# every checkout here until the five are pushed.
+# The GitHub owner to clone siblings from: OOPS_OWNER, else the owner of the root's
+# origin, so a fork bootstraps from the fork.
 owner_of() {
     if [ -n "${OOPS_OWNER:-}" ]; then printf '%s' "$OOPS_OWNER"; return 0; fi
     local url
@@ -420,17 +272,9 @@ owner_of() {
     printf '%s' "${url##*[:/]}"
 }
 
-# A token, when the sibling is private and the caller has one.
-#
-# Four of the five went private, and a workflow's own `GITHUB_TOKEN` is scoped to the one
-# repository it runs in - so obSCEne's CI could see that it needed SELFish and Prosperous, name
-# them correctly, and still fail with "could not read Username for https://github.com". Only
-# `oops-libs`, still public, arrived.
-#
-# `OOPS_CI_TOKEN` is read from the environment and never written anywhere: it goes into the URL
-# for one clone and the remote is rewritten immediately afterwards, so it is not left sitting in
-# `.git/config` for anything later to print. Absent, this changes nothing and a public sibling
-# clones exactly as before.
+# The clone URL for owner/repo. With OOPS_CI_TOKEN set it carries the token, for private
+# siblings a workflow's GITHUB_TOKEN cannot read; bootstrap resets the remote afterwards
+# so the token is not left in `.git/config`.
 clone_url() {
     if [ -n "${OOPS_CI_TOKEN:-}" ]; then
         printf 'https://x-access-token:%s@github.com/%s/%s' "$OOPS_CI_TOKEN" "$1" "$2"
@@ -439,20 +283,10 @@ clone_url() {
     fi
 }
 
-# Fetch the four, or a named subset plus whatever that subset needs. This is the CI
-# entry point: a workflow clones the meta with no submodules and asks for what its
-# job actually builds, rather than paying for five checkouts to build one.
-#
-# Three ways a sibling can arrive, tried in that order:
-#
-#   1. it is already there   - CI puts the project under test in place with the checkout
-#                              action, and asking git to initialise a submodule over the
-#                              top of that is a fight nobody wins
-#   2. `git submodule`       - once the five are published and wired up
-#   3. `git clone`           - before then, and that is the state today: there is no
-#                              .gitmodules, and until this could clone, every child
-#                              repository's CI failed here on a sibling it could see the
-#                              name of and had no way to fetch
+# Fetch the named projects and their dependencies (all members when none are named).
+# CI clones the root without submodules and bootstraps what its job builds. A member
+# already present is kept, since CI checks the project under test out itself; otherwise
+# it comes from its submodule entry, or by clone when it has none.
 bootstrap() {
     local want p name owner rc
     want="$(with_deps "$(resolve "$@")")"
@@ -484,40 +318,27 @@ bootstrap() {
     report
 }
 
+# The checks that span repositories and so run from the root.
 gates() {
-    # These checkers are shell, like the entry points they sit beside. The collection is Rust, C
-    # and bash, with no Python anywhere, which obSCEne's CLAUDE.md states outright - see
-    # tools/README.md for why a handful of Python checkers here were rewritten out. Adding Python
-    # to check the others would be a language nobody asked for.
     step "meta: decision logs"
     bash "$ROOT/tools/check-decisions.sh" || FAILED="$FAILED meta:decisions"
     step "meta: markdown links"
     bash "$ROOT/tools/check-links.sh" || FAILED="$FAILED meta:links"
-    # The third thing that can only be answered from here: a child repository's workflow
-    # checks *itself* out, and whether the collection is around it when it does is not
-    # visible from inside that repository. Several were flat checkouts that could not
-    # have built, and nothing said so - these workflows had not run when the gate was written.
     step "meta: workflow preambles"
     bash "$ROOT/tools/check-workflows.sh" || FAILED="$FAILED meta:workflows"
-    # House prose style, which is only enforceable from here: the convention is one
-    # collection-wide rule, and a per-project copy would be one more thing per repository to drift.
     step "meta: dashes"
     bash "$ROOT/tools/check-dashes.sh" || FAILED="$FAILED meta:dashes"
 }
 
 status_all() {
     local d name branch dirty state
-    # The meta and every member, not every git directory under the root - anything
-    # else here is somebody's in-progress work and not this script's business.
     for name in "(meta)" $PROJECTS; do
         if [ "$name" = "(meta)" ]; then d="$ROOT"; else d="$ROOT/$name"; fi
         if [ ! -d "$d/.git" ]; then
             printf '%-12s %s\n' "$name" "not a checkout"
             continue
         fi
-        # `git branch --show-current` rather than `rev-parse --abbrev-ref HEAD`:
-        # with no commits yet the latter prints "HEAD" *and* fails, so a fallback
-        # lands on the same line and the column reads "HEAD\n-".
+        # `branch --show-current` also answers in a repository with no commits.
         branch="$(git -C "$d" branch --show-current 2>/dev/null)"
         [ -n "$branch" ] || branch="(detached)"
         dirty="$(git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
@@ -563,8 +384,6 @@ doctor() {
         have clang "the C repositories compile freestanding C with it" || c_gap=1
         have make "obSCEne, oops-sdk and every app are Makefiles" || c_gap=1
     fi
-    # The gap this one reports is the gap `setup` closes, so it says so. A check that names
-    # what is missing and not the command that fixes it leaves the reader to find it.
     if [ "$c_gap" -ne 0 ]; then
         note "       ./bin/oops setup installs it (tools/setup-wsl.sh)"
         rc=1
@@ -584,22 +403,10 @@ doctor() {
     return "$rc"
 }
 
-# oops tracer <titleid> - a title's shaders off hardware, into orbistoun's coverage census.
-#
-# The reproducible, canonical path from an installed title to a translation-coverage report,
-# built entirely out of first-party tools (CONVENTIONS §10, no scratch bridging):
-#
-#   1. app.mk  builds the tracer payload      (make elf)
-#   2. pros    launches the title and injects  (pros launch / pros send, via elfldr)
-#   3. pros    watches the log and pulls dumps (pros logs / pros backup)
-#   4. orbistoun-cli ranks what will not translate over the captured shaders (the census)
-#
-# What it produces is a *worklist* - which RDNA2 instructions the translator still lacks -
-# not a shipped asset. The shaders it pulls are the title's own copyrighted bytecode: they
-# are a local yardstick only. They land under orbistoun's already-gitignored `titles/<id>/`
-# tree - the same place the data-dir convention keeps "everything one title owns" - so no new
-# directory is invented; they are never committed (the provenance guard also bans their `.bin`
-# extension from the index) and can be deleted once the census has read them.
+# oops tracer <titleid>: builds the tracer payload (app.mk), launches the title and sends
+# the tracer with pros, pulls the shader dumps, and runs orbistoun's shader census over
+# them, which ranks the RDNA2 instructions the translator lacks. The dumps are the title's
+# own bytecode: local input only, kept under orbistoun's ignored `titles/<id>/`.
 cmd_tracer() {
     local id="" target="" seconds=45 out="" ingest=1 keep_open=0
     while [ "$#" -gt 0 ]; do
@@ -622,62 +429,43 @@ cmd_tracer() {
     local elf="$tracer_dir/build/tracer.elf"
     local pros="$ROOT/prosperous/bin/prosperous"
     local remote="/data/shaders"        # shader_dump.c's default dump directory on the target
-    # Land under the already-gitignored `titles/<id>/` tree - what the data-dir convention
-    # (orbistoun-paths::dirs::TITLES) calls "everything one title owns". No new directory.
     out="${out:-$ROOT/orbistoun/titles/$id/shaders}"
     [ -x "$pros" ] || die "prosperous not found at $pros - is the collection checked out? (oops bootstrap)"
     [ -d "$tracer_dir" ] || die "tracer sources not found at $tracer_dir"
 
-    # One prosperous call, with the chosen target threaded through. `--name` is global, so it
-    # is legal on every subcommand and its position does not matter.
+    # A pros call with the chosen target; `--name` is a global option.
     p() { if [ -n "$target" ]; then "$pros" "$@" --name "$target"; else "$pros" "$@"; fi; }
 
-    # 1. Build the payload through app.mk - never a hand-rolled clang line (CONVENTIONS §10).
-    #    Freestanding C, so on Windows it re-enters WSL exactly as the C repositories do.
     step "build the tracer payload (make elf)"
     if needs_wsl; then run_via_wsl "$tracer_dir" make elf
     else ( cd "$tracer_dir" && make elf ); fi
     [ -f "$elf" ] || die "tracer build produced no $elf"
 
-    # 2. Confirm the target can take a payload before starting anything on it.
     step "check the target"
     p check || die "target not reachable - register and check it with prosperous first"
 
-    # 3. Launch the title the way the home screen does, then inject the tracer into it.
-    #
-    #    `pros send` runs the payload via elfldr, standalone - the tracer then finds the title
-    #    on its own: it scans for the process that loaded `libSceAgc` (only the title does) and
-    #    attaches through the SDK's kernel read/write (krw.c is in its sources). So it needs no
-    #    title argument and `send` needs no `--attach`. The one consequence to know: it hooks
-    #    `sceAgcCreateShader`, so it captures shaders created *after* it attaches - a title that
-    #    compiles its whole set at launch is best captured by playing into a scene during the
-    #    window below, not by the launch burst alone.
+    # The tracer finds the title itself (the process that loaded libSceAgc), so `send` takes
+    # no title. It captures shaders created after it attaches: play into a scene during the
+    # window to capture more than the launch set.
     step "launch $id"
     p launch "$id" || die "could not launch $id"
     step "inject the tracer (elfldr) and listen while it hooks and dumps (${seconds}s)"
     p send "$elf" --seconds "$seconds" || die "could not send the tracer payload"
 
-    # 4. Let shaders accumulate as the title runs, watching the log for what was captured.
     step "watch the log while shaders accumulate (${seconds}s)"
     p logs --seconds "$seconds" || note "log stream ended early"
 
-    # 5. Pull the whole dump directory under the already-gitignored `titles/<id>/` tree (title
-    #    assets: local only, never tracked - see the header).
     step "pull the shader dumps -> $out"
     mkdir -p "$out"
     p backup "$remote" --into "$out" \
         || die "could not pull $remote - did the tracer dump anything? read the log above"
 
-    # 6. Return the console to a clean state unless asked to leave the title up.
     if [ "$keep_open" -eq 0 ]; then
         step "close $id"
         p close "$id" || note "close reported a problem; the title may still be open"
     fi
 
-    # 7. Ingest: rank what the translator cannot yet handle across the captured shaders. This
-    #    is the payoff - a worklist, not a pile of files. The census reads `.bin` bytecode
-    #    directly and hashes each shader's content itself, so the tracer's filenames need not
-    #    match orbistoun's ids.
+    # The census hashes each shader's content, so the dump filenames do not matter.
     if [ "$ingest" -eq 1 ]; then
         step "census: rank the translator's gaps over the captured corpus"
         ( cd "$ROOT/orbistoun" && cargo run -q -p orbistoun-cli -- shaders "$out" )
@@ -690,9 +478,7 @@ cmd_tracer() {
     note "shaders: $out   (local coverage corpus, never committed)"
 }
 
-# The header comment above IS the usage text, so the two cannot drift. The range
-# ends at the line before `set -euo`, found rather than hardcoded - a hardcoded
-# number silently truncates the help the next time a verb is documented.
+# The header comment is the usage text, up to the `set -euo` line.
 usage() {
     local last
     last=$(( $(grep -n '^set -euo' "$0" | head -1 | cut -d: -f1) - 1 ))

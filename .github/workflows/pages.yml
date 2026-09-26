@@ -1,11 +1,6 @@
 name: Deploy landing page to GitHub Pages
 
-# Publishes the collection's own landing page and the shared documents -
-# conventions, architecture, building, publishing - to
-# project-oops.github.io/OOPS/.
-#
-# This repository holds `tools/build-docs.sh` and the other four check it out to
-# render their docs. Here it is already present, so there is nothing to fetch.
+# Publishes the landing page (frontend/web) and docs/ to project-oops.github.io/OOPS/.
 
 on:
   push:
@@ -37,19 +32,14 @@ jobs:
           enablement: true
 
       - name: Assemble bundle
-        # No accent is passed the way the four projects pass theirs: this page
-        # has no single colour, because it is where all four meet. The docs it
-        # renders take the muted neutral the script falls back to.
+        # The collection has no accent colour of its own; its docs use a neutral grey.
         run: |
           set -euo pipefail
           mkdir -p site/assets
           cp -r frontend/web/. site/
           cp assets/logo.svg site/assets/
 
-          # The navigation is the four project icons, so they are fetched from
-          # the projects rather than copied in here - a vendored icon goes stale
-          # the first time one of them is redrawn, and nothing would say so.
-          # `-f` so a missing icon fails the build instead of shipping a gap.
+          # The four project icons, fetched from their repositories; `-f` fails on a missing one.
           for pair in Orbistoun:orbistoun obSCEne:obscene Prosperous:prosperous SELFish:selfish; do
             repo="${pair%%:*}"; name="${pair##*:}"
             curl -fsSL -o "site/assets/$name.svg" \

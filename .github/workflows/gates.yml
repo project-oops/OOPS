@@ -1,17 +1,4 @@
-# The four checks that cannot be answered from inside a single project.
-#
-# Two of them need all five checked out at once - `check-links.sh` resolves
-# `../selfish/docs/...` from orbistoun, and `check-decisions.sh` compares independently-
-# numbered logs. The third, `check-workflows.sh`, needs the opposite: a child repository's
-# workflow checks *itself* out, and whether the collection is around it when it does is
-# invisible from inside that repository. Five workflows were flat checkouts that could not
-# have built, and nothing said so.
-#
-# That is the whole reason `tools/` exists here rather than five times over, and it is also
-# why this workflow is the only one in this repository. `check-dashes.sh` joins them for the
-# same reason: the house prose style is one collection-wide rule, not five.
-#
-# Runs the collection gates on every push (conventions section 5).
+# The collection gates, which span repositories and so run here (CONVENTIONS section 5).
 name: gates
 
 on:
@@ -19,9 +6,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  # The submodules are pinned revisions, so this repository can go green and stay green while
-  # a project moves underneath it. A weekly run against whatever the pins point at is the only
-  # thing that notices.
+  # Weekly, against the pinned submodule revisions.
   schedule:
     - cron: "0 6 * * 1"
 
@@ -34,12 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Both checkers need every repository present. Until they are submodules this
-          # resolves to nothing and the guard below says so rather than passing an empty run.
           submodules: recursive
 
-      # `check-links.sh` reads the tracked set with `git ls-files`, so the projects have to be
-      # real checkouts rather than unpacked directories.
+      # The gates read every repository; a missing one fails rather than passing empty.
       - name: The four are present
         run: |
           missing=""
@@ -49,15 +31,10 @@ jobs:
           if [ -n "$missing" ]; then
             echo "not checked out:$missing"
             echo ""
-            echo "Both gates span every repository and neither means anything without them."
-            echo "If the submodules are not wired up yet, see docs/PUBLISHING.md - this"
-            echo "workflow is expected to fail until they are, and failing is the honest"
-            echo "answer rather than skipping."
+            echo "The gates span every repository; see docs/PUBLISHING.md."
             exit 1
           fi
 
-      # Through `bin/oops` rather than calling the two checkers directly, so the
-      # command CI runs is the command a person runs. The moment they differ, one
-      # of them is untested - and the entrypoint is the half nobody would notice.
+      # Through bin/oops, so CI runs the command a person runs.
       - name: Gates
         run: ./bin/oops gates

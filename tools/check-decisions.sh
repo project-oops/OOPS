@@ -7,35 +7,13 @@
 #   tools/check-decisions.sh --update-baseline
 #   tools/check-decisions.sh --prune-baseline  # drop keys that no longer fire, and only those
 #
-# Exit status is 0 only when nothing fails that is not already in the baseline.
-#
-# A convention that is only written down is a convention that drifts. Each of these
-# repositories started dating decisions and quietly stopped, and two of them have logs whose
-# entries are no longer in numeric order, which is what "append-only" was supposed to prevent.
-# Nothing noticed, because nothing was looking.
-#
-# # Why there is a baseline
-#
-# The first version reported 370 failures, which was the right thing to do once. But it could
-# never go green: 302 of those are undated entries whose dates cannot be recovered, because no
-# repository here had commit history when they were written. A gate whose verdict is "fails"
-# on every run it will ever have says exactly as much as one that has never fired - conventions
-# section 8 makes that argument about a workflow on the wrong branch, and this is the same
-# defect from the other side. It also buried the failures that are actionable under three
-# hundred that are not.
-#
-# So the known set lives in `decisions-baseline.txt`, which is a **list and not a count** -
-# section 5's objection is to numbers copied out of the thing that owns them, and a list the
-# tool regenerates is not that.
-#
-# The baseline can only shrink. A key in it that no longer fires is itself a failure, because
-# a baseline nobody prunes becomes a licence rather than a record.
+# Checks numeric order, duplicate numbers, a date and a title on every entry. Exits 0 only
+# when every failure is listed in `decisions-baseline.txt`, a list of known failures that
+# may only shrink: a listed key that no longer fires is itself a failure.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$HERE")"
-# oops-libs is not one of the four, but it keeps a decision log and is held to the same rules -
-# a gate that skips the newest repository is a gate that drifts first.
 PROJECTS="orbistoun obscene prosperous selfish oops-libs oops-sdk oops-apps oops-mesa"
 BASELINE="$HERE/decisions-baseline.txt"
 
@@ -67,29 +45,16 @@ trap 'rm -rf "$work"' EXIT
 found="$work/found"
 : > "$found"
 
-# --- one pass per log -------------------------------------------------------------------
-#
-# Emits `<project>|<ident>|<kind>|<line>|<detail>`. `ident` is `Dnnn`, or a run like
-# `D337-D339`, or `-` for a whole-file finding; it is the half of the baseline key that has to
-# survive somebody editing the file above it, which is why no line number goes in the key.
+# One pass per log, emitting `<project>|<ident>|<kind>|<line>|<detail>`. `ident` is `Dnnn`
+# or `-` for a whole-file finding; the baseline key omits the line so edits do not move it.
 for project in $WANTED; do
     log="$ROOT/$project/docs/DECISIONS.md"
     split="$ROOT/$project/docs/decisions"
 
-    # Two layouts, one set of rules. A split log is many files with `# Dnnn - Title`; an
-    # unsplit one is a single file of `## Dnnn - Title`. Rather than two implementations of
-    # section 4, the split layout is flattened into the shape the rules already read - so a
-    # repository that splits does not quietly get a different standard.
-    #
-    # Two failure kinds stop being possible once split, which is most of the reason to do it:
-    # entries cannot be out of order when each is its own file, and two sessions writing two
-    # decisions never touch the same file, so they cannot collide into a duplicate.
+    # A split log (`docs/decisions/Dnnn-*.md`, headed `# Dnnn - Title`) is flattened into the
+    # single-file `## Dnnn - Title` shape the rules read.
     if [ -d "$split" ]; then
-        # An appended entry in a generated index is invisible to everything below: the rules
-        # read `docs/decisions/`, so a `## Dnnn` written into DECISIONS.md is checked by
-        # nothing and overwritten by the next `--index` run. Somebody who has not noticed the
-        # split yet will do exactly this, so it is reported rather than left to be discovered
-        # by the decision going missing.
+        # DECISIONS.md is then a generated index; an entry written into it is lost.
         if grep -qE '^## D[0-9]+' "$ROOT/$project/docs/DECISIONS.md" 2>/dev/null; then
             printf '%s|-|appended-to-index|0|%s\n' "$project" \
                 "docs/DECISIONS.md is generated but has \`## Dnnn\` headings - move them into docs/decisions/" \
@@ -112,8 +77,7 @@ for project in $WANTED; do
             print project "|" id "|" kind "|" line "|" detail
         }
 
-        # A heading, and the date that belongs to it. Every log puts status and date in the
-        # first line or two; six lines of slack, not licence.
+        # A heading, and its date within the next six lines.
         /^## D[0-9]+/ {
             num = $0; sub(/^## D/, "", num); sub(/[^0-9].*$/, "", num); num = num + 0
             rest = $0; sub(/^## D[0-9]+/, "", rest)
@@ -155,8 +119,7 @@ for project in $WANTED; do
             for (i = 1; i <= n; i++)
                 if (edate[i] == "") emit(ident(enum[i]), "undated", eline[i], "undated")
 
-            # 4. A heading with no title is a heading you cannot skim. The strip set carries
-            #    both dash marks because the logs predate the house style and contain both.
+            # 4. Every heading carries a title.
             for (i = 1; i <= n; i++) {
                 t = erest[i]
                 gsub(/^[ \t---]+|[ \t---]+$/, "", t)
@@ -166,7 +129,6 @@ for project in $WANTED; do
     ' "$log" >> "$found"
 done
 
-# --- baseline ---------------------------------------------------------------------------
 keyfile="$work/keys"
 awk -F'|' '{print $1 " " $2 " " $3}' "$found" | sort -u > "$keyfile"
 
@@ -187,18 +149,14 @@ fi
 
 known="$work/known"
 if [ -f "$BASELINE" ]; then
-    sed 's/#.*//' "$BASELINE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep . | sort -u > "$known"
+    sed 's/#.*//' "$BASELINE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | { grep . || true; } |
+        sort -u > "$known"
 else
     : > "$known"
 fi
 
-
-# `--update-baseline` rewrites the file from whatever fires today, which grows it as readily as
-# it shrinks it - run it with eighty unfixed failures on disk and all eighty become "known".
-# That is the one operation the paragraph above forbids, and it was the only one on offer.
-#
-# This removes keys that no longer fire and touches nothing else. A baseline can shrink by
-# itself; it can only grow by somebody deciding, in a diff, that it should.
+# Drop keys that no longer fire, and nothing else; unlike --update-baseline it cannot grow
+# the baseline.
 if [ "$prune_baseline" -eq 1 ]; then
     if [ "$full_run" -ne 1 ]; then
         printf -- '--prune-baseline compares against every project, so it needs all of them\n' >&2
@@ -209,8 +167,7 @@ if [ "$prune_baseline" -eq 1 ]; then
         printf 'baseline: nothing stale\n'
         exit 0
     fi
-    # Comments and blank lines are kept: the header explains why the file exists, and a
-    # pruning tool that eats the explanation is how the next reader learns nothing.
+    # Comments and blank lines are kept.
     awk -v gone="$gone" '
         BEGIN { n = split(gone, g, "\n"); for (i = 1; i <= n; i++) if (g[i] != "") dead[g[i]] = 1 }
         /^#/ || /^[[:space:]]*$/ { print; next }
@@ -228,10 +185,7 @@ for project in $WANTED; do
     : > "$pnew"; : > "$pknown"
     while IFS='|' read -r p id kind line detail; do
         [ "$p" = "$project" ] || continue
-        # Name the file the reader has to open. For a split log the rules ran over a
-        # flattened copy, so its line numbers point into a temporary file that no longer
-        # exists - reporting them sends somebody to a line that corresponds to nothing.
-        # The entry file is what they want, and the number resolves to exactly one.
+        # For a split log, name the entry file; line numbers point into the flattened copy.
         entry=""
         if [ "$id" != "-" ] && [ -d "$ROOT/$p/docs/decisions" ]; then
             entry="$(find "$ROOT/$p/docs/decisions" -name "${id}-*.md" 2>/dev/null | head -1)"
@@ -263,8 +217,7 @@ for project in $WANTED; do
     new_count=$((new_count + n))
 done
 
-# A baseline key that no longer fires is stale, and stale is what section 5 is about. Only
-# meaningful on a full run: a filtered one cannot tell "fixed" from "not looked at".
+# Stale baseline keys, on a full run only: a filtered run cannot tell fixed from unexamined.
 stale=""
 if [ "$full_run" -eq 1 ]; then
     stale="$(comm -23 "$known" "$keyfile" || true)"

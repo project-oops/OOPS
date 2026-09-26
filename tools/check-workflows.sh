@@ -4,36 +4,11 @@
 #   tools/check-workflows.sh            # every member
 #   tools/check-workflows.sh selfish
 #
-# # Why this exists
-#
-# Every project resolves `oops-libs` by relative path, as a sibling, so a workflow that checks
-# itself out flat cannot build - it fails as a missing *directory* rather than as a missing
-# dependency. Five workflows across four repositories were in exactly that state and none of
-# them reported it, because not one of these workflows had ever executed: there were no remotes
-# yet. A gate nobody runs is documentation that claims to be a gate, and the answer to that is
-# a gate that runs somewhere else.
-#
-# The three faults this was written after finding, all of which look fine read quickly:
-#
-#   * a flat `actions/checkout@v4` with no collection around it - orbistoun's `ci.yml`,
-#     `pages.yml` and the `release.yml` build job, and three of obSCEne's jobs;
-#   * `defaults.run.working-directory: OOPS/obscene` on a job that then runs
-#     `OOPS/bin/oops bootstrap obscene`, which resolves to `OOPS/obscene/OOPS/bin/oops`;
-#   * no bootstrap step at all, on the strength of a comment saying the project depended on
-#     nothing outside itself - true when written, false for months afterwards.
-#
-# # Why awk, and why it buffers whole steps
-#
-# The collection has no Python and no Cargo workspace in this repository; `bin/oops`,
-# `build-docs.sh` and `publish-profile.sh` are shell, so this is shell.
-#
-# It reads a step at a time rather than a line at a time, because **`working-directory:` comes
-# after `run:`**. Judging a `run:` the moment it appears reported every correct step in the
-# collection as wrong, since the directory that makes it correct had not been read yet. A step
-# is only decidable once it is over.
-#
-# A job that checks out nothing is skipped: the release publish jobs download artifacts and
-# `dependabot-automerge` only talks to the API. Neither builds, so neither needs the layout.
+# Projects resolve their siblings by relative path, so a job that builds must check out OOPS
+# and OOPS/<project>, run `oops bootstrap <project>`, run `OOPS/bin/oops` from the workspace
+# root and `./bin/...` from OOPS/<project>. Steps are judged whole, since
+# `working-directory:` may follow `run:`. Jobs that check nothing out are skipped. The
+# preamble is in docs/BUILDING.md.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -71,7 +46,7 @@ for proj in $WANTED; do
                 return trim(v)
             }
 
-            # --- close the step that just ended, and judge it -----------------------------
+            # Judge the step that just ended.
             function close_step(   wd) {
                 if (!in_step) return
                 wd = (step_wd != "" ? step_wd : job_wd)
@@ -105,8 +80,7 @@ for proj in $WANTED; do
             }
             job == "" { next }
 
-            # `defaults:` is job level (four spaces). Anything at that depth ends it - which
-            # is what stops a step`s own working-directory being read as the job`s.
+            # `defaults:` is job level (four spaces); any key at that depth ends it.
             /^    defaults:[[:space:]]*$/ { in_defaults = 1; next }
             /^    [A-Za-z]/ { in_defaults = 0 }
             in_defaults && /working-directory:/ { job_wd = value($0); next }

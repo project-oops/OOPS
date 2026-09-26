@@ -1,15 +1,10 @@
 @echo off
-REM Windows shim for `oops`, so cmd.exe and PowerShell can run it without
-REM entering Git Bash first. The real script is `bin/oops` beside this file and
-REM this only finds a bash to hand it to - there is no second implementation to
-REM drift out of step.
+REM Windows shim for `oops`: finds Git Bash and runs `bin/oops` with it.
 setlocal
 set "OOPS_SH=%~dp0oops"
 
-REM Git Bash is looked for FIRST and PATH only after. The bash on a default
-REM Windows PATH is C:\Windows\System32\bash.exe, which is the WSL launcher: it
-REM takes Linux paths, so handing it "C:\...\bin\oops" fails with a confusing
-REM "No such file or directory" for a file that plainly exists.
+REM Git Bash first, PATH last: the bash on a default PATH is System32\bash.exe, the WSL
+REM launcher, which cannot take a Windows path to the script.
 set "BASH="
 if exist "%ProgramFiles%\Git\bin\bash.exe" set "BASH=%ProgramFiles%\Git\bin\bash.exe"
 if not defined BASH if exist "%ProgramFiles(x86)%\Git\bin\bash.exe" set "BASH=%ProgramFiles(x86)%\Git\bin\bash.exe"
