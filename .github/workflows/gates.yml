@@ -22,10 +22,10 @@ jobs:
           submodules: recursive
 
       # The gates read every repository; a missing one fails rather than passing empty.
-      - name: The four are present
+      - name: Every member is present
         run: |
           missing=""
-          for p in orbistoun obscene prosperous selfish oops-libs; do
+          for p in orbistoun obscene prosperous selfish oops-libs oops-sdk oops-apps oops-mesa; do
             if [ ! -d "$p/docs" ]; then missing="$missing $p"; fi
           done
           if [ -n "$missing" ]; then
