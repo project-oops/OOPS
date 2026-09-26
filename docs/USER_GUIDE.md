@@ -1,240 +1,94 @@
-# OOPS Ecosystem User Guide
+# User guide
 
-Welcome to the **OOPS** (**O**rbistoun, **o**bSCEne, **P**rosperous, **S**ELFish) user guide.
+Building an application, running it on hardware, and running it in the emulator, with the
+collection's own tools. [THE_LOOP.md](THE_LOOP.md) explains how these steps feed each other;
+[BUILDING.md](BUILDING.md) covers the toolchain and `bin/oops`.
 
-This guide is designed for **homebrew developers, operators, hardware testers, and curious users** who want to build, package, deploy, or emulate console applications using 100% clean-room, first-party tools.
+## The tools
 
-Looking for the deep technical detail — the architecture, ABI layouts and decision records? See **[THE LOOP](THE_LOOP.md)** and each project's own technical reference.
+The host tools are Rust and run natively on Windows and Linux. Target code is freestanding C,
+cross-compiled with clang 21 in the `silkeh/clang:21` container or the WSL `oops-builder`
+distribution (`./bin/oops setup`).
 
----
-
-## Table of Contents
-
-1. [Prerequisites & Environment Setup](#1-prerequisites--environment-setup)
-2. [Building & Installing the First-Party Tools](#2-building--installing-the-first-party-tools)
-3. [End-to-End Workflows](#3-end-to-end-workflows)
-   - [Workflow A: Build and Package Homebrew](#workflow-a-build-and-package-homebrew)
-   - [Workflow B: Deploy & Manage on Real Hardware](#workflow-b-deploy--manage-on-real-hardware)
-   - [Workflow C: Run & Test in the Orbistoun Emulator](#workflow-c-run--test-in-the-orbistoun-emulator)
-4. [Component User Guides](#4-component-user-guides)
-5. [Troubleshooting & FAQ](#5-troubleshooting--faq)
-
----
-
-## 1. Prerequisites & Environment Setup
-
-OOPS uses a dual-environment toolchain:
-- **Host Tools** (`selfish`, `pros`, `orbistoun`): Written in Rust, running natively on Windows or Linux.
-- **Target Payloads** (`obscene`, `oops-sdk`, `oops-apps`): Freestanding C/C++ cross-compiled for x86-64 FreeBSD/Prospero.
-
-### Required Software:
-1. **Rust Toolchain**: Rust 1.80+ (`rustup default stable`).
-2. **Container or WSL for Target Cross-Compilation**:
-   - **Windows**: Docker Desktop (`silkeh/clang:21`) is the authoritative runner; WSL2 (the
-     `oops-builder` distribution) is permitted and must carry the same clang major.
-   - **Linux**: Clang 21 and `lld` installed natively.
-
-   The major version is not advisory. Each repository's `toolchain.mk` refuses to compile
-   against a different one, and `tools/check-toolchain.sh` fails when the repositories disagree
-   with each other. See [`AGENTS.md`](../AGENTS.md) for why the container is the authority.
-
----
-
-## 2. Building & Installing the First-Party Tools
-
-To build the primary host command-line tools into your environment:
-
-```powershell
-# In PowerShell (Windows) or bash (Linux)
-git clone https://github.com/project-oops/OOPS.git
-cd OOPS
-
-# Build the packager (selfish)
-cargo build --release -p selfish-cli
-# Build the target bridge (pros)
-cargo build --release -p pros-cli
-# Build the emulator (orbistoun)
-cargo build --release -p orbistoun-cli
+```bash
+./bin/oops build selfish prosperous orbistoun
 ```
 
-Binaries will land in `target/release/` (`selfish.exe`, `pros.exe`, `orbistoun.exe`). Add this directory to your `PATH` or invoke them directly.
+| Tool | Binary | Purpose |
+|---|---|---|
+| SELFish | `selfish/target/release/selfish` | containers, title directories, packages |
+| Prosperous | `prosperous/target/release/pros` | registering a target, deploying, launching, logs |
+| Orbistoun | `orbistoun/target/release/orbistoun-cli`, or `./bin/orbistoun` | running a title in the emulator |
 
----
+Every host tool keeps its data under one root, `%APPDATA%\OOPS` on Windows, or beside the
+binary in portable mode. The [oops-libs guide](../oops-libs/docs/USER_GUIDE.md) gives the
+layout and its overrides.
 
-## 3. End-to-End Workflows
+## From source to title
 
 ```
-  [C Source Code]
-        │ (make in WSL / Docker)
-        ▼
-   [app.elf]
-        │
-        ├── (selfish --format title) ──► [Title Directory: GLCB00001/]
-        │                                      │
-        │                                      ├── (pros restore / launch) ──► Physical PS5
-        │                                      │
-        │                                      └── (orbistoun run) ──────────► Orbistoun Emulator
-        ▼
-   [eboot.bin]
+[C source]
+    | make, in the container or WSL
+    v
+[app.elf] -- selfish --format title --> [title directory, e.g. GLCB00001/]
+                                            |-- pros restore, pros launch --> hardware
+                                            '-- orbistoun run ----------------> emulator
 ```
 
-### Workflow A: Build and Package Homebrew
+### Build and package an app
 
-1. **Compile the App Payload**:
-   In your WSL terminal or Linux shell, navigate to an app in `oops-apps`:
-   ```bash
-   cd oops-apps/src/oops-gl/gl1-cube
-   make title
-   ```
-   This automatically:
-   - Compiles freestanding C source into `gl1-cube.elf`.
-   - Compiles the companion `libc.prx` module.
-   - Calls `selfish --format title` to layout `build/title/GLCB00001/` with generated `param.json`, `icon0.png`, `keystone`, `nptitle.dat`, and `pfs-version.dat`.
-
-2. **Verify Title Directory**:
-   Inspect the contents:
-   ```powershell
-   ls build/title/GLCB00001
-   # Output: eboot.bin, sce_module/, sce_sys/
-   ```
-
-### Workflow B: Deploy & Manage on Real Hardware
-
-1. **Register Your Target Console**:
-   ```powershell
-   pros.exe register 192.168.1.211 --name ps5-testbed
-   ```
-
-2. **Verify Console Health**:
-   ```powershell
-   pros.exe check
-   ```
-   *Expectation*: All 5 active ports should respond (`elfldr:9021`, `ftpsrv:2121`, `klogsrv:3232`, `shsrv:2323`, `pldmgr:8084`).
-
-3. **Stage the Title**:
-   ```powershell
-   pros.exe restore build/title/GLCB00001 /data/homebrew/GLCB00001
-   ```
-
-4. **Launch and Stream Telemetry**:
-   ```powershell
-   # In terminal 1: Stream live system logs
-   pros.exe logs
-
-   # In terminal 2: Launch the title
-   pros.exe launch GLCB00001
-   ```
-
-### Workflow C: Run & Test in the Orbistoun Emulator
-
-1. **Run Title Directory**:
-   ```powershell
-   orbistoun.exe run build/title/GLCB00001
-   ```
-
-2. **Inspect Call Report & Compare Traces**:
-   ```powershell
-   # View calls made by the guest during execution
-   orbistoun.exe report
-
-   # Compare against the previous execution trace
-   orbistoun.exe verify
-   ```
-
----
-
-## 4. Paths and Portable Mode Across OOPS
-
-All host tools in the collection (`pros`, `orbistoun`, `selfish`, `obscene-tool`) share a unified platform storage layout resolved at runtime by `oops-paths`:
-
-### Default Storage Layout
-- **Windows**: `%APPDATA%\OOPS\`
-- **Linux**: `~/.local/share/OOPS/` (or `$XDG_DATA_HOME/OOPS/`)
-
-All tools share this directory:
-```text
-%APPDATA%\OOPS\
-├── targets.txt      <- Registered consoles (shared between pros, orbistoun, and obscene)
-├── titles/          <- Staged titles and guest filesystems (shared between pros and orbistoun)
-├── saves/           <- Mounted save files
-└── reports/         <- Hardware conformance reports and telemetry
+```bash
+cd oops-apps/src/oops-gl/gl1-cube
+make title
 ```
 
-### Portable Mode
+`make title` compiles the app, and calls `selfish --format title` to lay out
+`build/title/GLCB00001/` with `eboot.bin`, `sce_module/` and `sce_sys/` (`param.json`,
+`icon0.png` and the other metadata a title carries).
 
-Drop a `.portable` directory (or sentinel file) next to your OOPS executables, or set `OOPS_PORTABLE=1`:
+### Run it on hardware
 
-```text
-<wherever you put your tools>/
-    pros.exe
-    orbistoun.exe
-    selfish.exe
-    .portable        <- Sentinel directory or file
-    targets.txt      <- Written right beside the binaries
-    titles/
-    saves/
+```bash
+pros register <address> --name <name>
+pros check
+pros restore build/title/GLCB00001 /data/homebrew/GLCB00001
+pros logs            # in a second terminal, before launching
+pros launch GLCB00001
 ```
 
-In portable mode:
-- **Zero footprint**: Nothing is written to `%APPDATA%` or host user profiles.
-- **Self-contained**: You can run the entire toolchain, emulator, and target bridge off a USB stick or portable directory.
-- **Binary Naming**: Any binary whose filename contains `portable` (e.g. `orbistoun-portable.exe` or `pros-portable.exe`) automatically operates in portable mode.
+`pros check` expects the target's services on ports 9021 (payload loader), 2121 (FTP), 3232
+(kernel log), 2323 (shell) and 8084 (payload manager).
 
----
+### Run it in the emulator
 
-## 5. Modular Component User Guides
+```bash
+cd orbistoun
+./bin/orbistoun run GLCB00001
+```
 
-Following the in-house documentation standard, each project maintains dedicated, per-screen modular feature documents with screenshot placeholders and CLI/GUI side-by-side parity:
+`run` finds the title in the title library, runs it until it exits, faults or stops, and
+reports the verdict against the previous run. `orbistoun-cli questions` ranks what guests asked
+for that is still unknown, and `orbistoun-cli worklist` ranks what to implement next.
 
-- **Prosperous**: [`prosperous/docs/guide/`](../prosperous/docs/guide/getting-started.md)
-  - [Getting started](../prosperous/docs/guide/getting-started.md)
-  - [Targets](../prosperous/docs/guide/targets.md)
-  - [Logs](../prosperous/docs/guide/logs.md)
-  - [Files](../prosperous/docs/guide/files.md)
-  - [Titles](../prosperous/docs/guide/titles.md)
-  - [Library](../prosperous/docs/guide/library.md)
-  - [Shell](../prosperous/docs/guide/shell.md)
-  - [Payloads](../prosperous/docs/guide/payloads.md)
+## Per-project guides
 
-- **Orbistoun**: [`orbistoun/docs/features/`](../orbistoun/docs/features/README.md)
-  - [User guide](../orbistoun/docs/features/user-guide.md)
-  - [The library](../orbistoun/docs/features/library.md)
-  - [Running a title](../orbistoun/docs/features/running.md)
-  - [Inspecting a run](../orbistoun/docs/features/inspector.md)
-  - [Memory](../orbistoun/docs/features/memory.md)
-  - [Graphics](../orbistoun/docs/features/graphics.md)
-  - [Controllers](../orbistoun/docs/features/controllers.md)
-  - [Names and hashes](../orbistoun/docs/features/naming.md)
-  - [Where orbistoun writes](../orbistoun/docs/features/paths.md)
+- Prosperous: [getting started](../prosperous/docs/guide/getting-started.md),
+  [targets](../prosperous/docs/guide/targets.md), [logs](../prosperous/docs/guide/logs.md),
+  [files](../prosperous/docs/guide/files.md), [titles](../prosperous/docs/guide/titles.md),
+  [library](../prosperous/docs/guide/library.md), [shell](../prosperous/docs/guide/shell.md),
+  [payloads](../prosperous/docs/guide/payloads.md)
+- Orbistoun: [features](../orbistoun/docs/features/README.md)
+- SELFish: [user guide](../selfish/docs/USER_GUIDE.md)
+- obSCEne: [user guide](../obscene/docs/USER_GUIDE.md)
+- oops-sdk: [user guide](../oops-sdk/docs/USER_GUIDE.md)
+- oops-apps: [user guide](../oops-apps/docs/USER_GUIDE.md)
+- oops-libs: [user guide](../oops-libs/docs/USER_GUIDE.md)
 
-- **SELFish**: [`selfish/docs/USER_GUIDE.md`](../selfish/docs/USER_GUIDE.md)
-  - [Building an eboot](../selfish/docs/USER_GUIDE.md#--format-eboot)
-  - [Title directories](../selfish/docs/USER_GUIDE.md#--format-title)
-  - [Packages](../selfish/docs/USER_GUIDE.md#--format-pkg)
-  - [Reading a file](../selfish/docs/USER_GUIDE.md#reading-a-file)
+## Troubleshooting
 
-- 🔬 **obSCEne Probing Modes**: [**`obscene/docs/features/`**](../obscene/docs/features/README.md)
-  - [User Guide & Telemetry Grammar](../obscene/docs/features/user-guide.md)
-  - [Raw Socket Payload (:9021)](../obscene/docs/features/payload.md)
-  - [Full-Screen BIG_APP HUD](../obscene/docs/features/eboot.md)
-  - [Retail Sandbox Package](../obscene/docs/features/pkg.md)
+`pros check` times out:
 
-- 🛠️ **Supporting Repositories**:
-  - [oops-sdk Developer Handbook](../oops-sdk/docs/USER_GUIDE.md)
-  - [oops-apps Catalog & Tracer Guide](../oops-apps/docs/USER_GUIDE.md)
-  - [oops-libs Host Developer Guide](../oops-libs/docs/USER_GUIDE.md)
-
----
-
-## 6. Troubleshooting & FAQ
-
-### Q: Why does `pros check` report target timeout?
-- **Check IP Address**: Ensure your console's local network IP matches your registration (`pros register <IP>`).
-- **Jailbreak Status**: The payload loader (`elfldr`) and background daemons run volatile in RAM. If the console rebooted, re-run the jailbreak environment on the console.
-- **Firewall**: Ensure your host PC firewall does not block outbound traffic to ports `9021`, `2121`, `3232`, `2323`, and `8084`.
-
-### Q: Can I run commercial retail games in Orbistoun right now?
-- No. No emulator anywhere runs commercial PS5 retail titles today. Orbistoun currently loads, links, and executes native code for homebrew and tests, advancing call by call through our closed-loop oracle (**THE LOOP**).
-
-### Q: Why does `pros restore` fail with directory errors?
-- Make sure you are using the latest `pros` build. Our updated FTP client properly handles `226 Directory created` responses from embedded console servers.
+- The address registered with `pros register` is the target's current address.
+- The payload loader and the services run in memory, so a restarted target needs them started
+  again.
+- No firewall on the host blocks ports 9021, 2121, 3232, 2323 or 8084.

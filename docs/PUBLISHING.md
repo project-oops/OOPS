@@ -1,90 +1,49 @@
-# Publishing the eight, and wiring up the submodules
+# Repositories and submodules
 
-**Done.** Every repository has an initial commit, a remote and a public `main`, and every one is
-a submodule of this one. The first six were published on 2026-09-01; oops-apps was registered on
-2026-09-07 and pushed shortly after, and oops-mesa - the newest member - was registered and pushed
-after that, so a fresh `--recurse-submodules` clone now completes. What follows is what was done
-and why, plus the steps still outstanding.
+Every project is published under the `project-oops` organisation and is a submodule of this
+repository.
 
-## Where things are
+| Repository | Submodule directory |
+|---|---|
+| https://github.com/project-oops/OOPS | the collection |
+| https://github.com/project-oops/Orbistoun | `orbistoun` |
+| https://github.com/project-oops/obSCEne | `obscene` |
+| https://github.com/project-oops/Prosperous | `prosperous` |
+| https://github.com/project-oops/SELFish | `selfish` |
+| https://github.com/project-oops/oops-libs | `oops-libs` |
+| https://github.com/project-oops/oops-sdk | `oops-sdk` |
+| https://github.com/project-oops/oops-apps | `oops-apps` |
+| https://github.com/project-oops/oops-mesa | `oops-mesa` |
 
-```
-https://github.com/project-oops/OOPS         the collection, and this file
-https://github.com/project-oops/Orbistoun    submodule: orbistoun
-https://github.com/project-oops/obSCEne      submodule: obscene
-https://github.com/project-oops/Prosperous   submodule: prosperous
-https://github.com/project-oops/SELFish      submodule: selfish
-https://github.com/project-oops/oops-libs    submodule: oops-libs
-https://github.com/project-oops/oops-sdk     submodule: oops-sdk
-https://github.com/project-oops/oops-apps    submodule: oops-apps
-https://github.com/project-oops/oops-mesa    submodule: oops-mesa
-```
+The directory names are lower-case because the projects find each other by relative path on
+case-sensitive filesystems: `OOPS/obscene/tool/Cargo.toml` resolves
+`../../selfish/crates/selfish-abi` to `OOPS/selfish/crates/selfish-abi`. A nested or renamed
+layout does not build.
 
-The layout is not cosmetic. obSCEne finds SELFish by relative path, so
-`OOPS/obscene/tool/Cargo.toml` resolves `../../selfish/crates/selfish-abi` to
-`OOPS/selfish/crates/selfish-abi`. A nested or renamed arrangement breaks its build, and the
-submodule directory names are lower-case to match what that path expects on a case-sensitive
-filesystem.
+## Cloning
 
-## They were public, then private, then public again
-
-Worth writing down, because the private half broke three things at once and none of them
-announced itself as a visibility problem:
-
-- **CI could not fetch siblings.** A workflow's `GITHUB_TOKEN` is scoped to its own repository,
-  so obSCEne named SELFish and Prosperous correctly and failed with `could not read Username
-  for 'https://github.com'`. `bootstrap` now reads `OOPS_CI_TOKEN` for that case; see
-  [BUILDING.md](BUILDING.md).
-- **GitHub Pages went dark.** The free plan does not serve Pages from a private repository. The
-  four `pages.yml` workflows are now gated on `github.event.repository.visibility == 'public'`
-  so they skip instead of failing red.
-- **A public parent with private submodules** is a clone that fails for everybody else, which is
-  the one that would have been discovered by a stranger rather than by CI.
-
-## Why they were not wired up sooner
-
-A submodule records **a remote URL and a revision**. With no commits and no remotes there was
-nothing to record, and a `.gitmodules` written then would have named five repositories that did
-not exist and pinned four revisions that were never made. It would have looked finished and
-resolved to nothing.
-
-## What is still outstanding
-
-**The projects reference each other by local path.** `<OOPS>/obscene`, `../selfish`,
-`<OOPS>/prosperous` - none of those means anything to a reader with a clone. Converting them to
-the published URLs is a per-project job and the largest single documentation task the collection
-has. [README.md](../README.md) and [ARCHITECTURE.md](ARCHITECTURE.md) already used the published
-URLs, so they were correct the moment the remotes existed.
-
-**Build obSCEne once from a fresh clone.** That is the only way to find out the submodule layout
-is wrong, and it has not been done.
-
-**Done: oops-apps is pushed.** It had its first commit, its remote and an entry in `.gitmodules`,
-and its `main` is now on the remote; with oops-mesa likewise registered and pushed, a fresh
-`--recurse-submodules` clone gets all eight rather than stopping on a missing submodule.
-
-## What a reader gets either way
-
-**Cloning this repository** gets all eight, arranged so obSCEne builds.
+Cloning this repository gets every project, arranged so they build:
 
 ```bash
 git clone --recurse-submodules https://github.com/project-oops/OOPS
 ```
 
-**Cloning one project** is not the development path and its README should say so - point
-at this repository for anyone intending to change the code, and at releases for anyone
-intending to use it. obSCEne in particular does not build without SELFish beside it, which
-is worth stating rather than leaving somebody to discover from a build error.
+A clone of one project is for using its releases, not for changing its code; obSCEne, for one,
+does not build without its siblings. `./bin/oops bootstrap <project>` fetches the siblings a
+project needs into an existing checkout of this repository.
 
-## Keeping it current
+## Updating the pins
 
-A submodule pins a revision, so this repository does not follow the projects - it records a
-set of eight revisions that were known to work together. Updating is deliberate:
+A submodule pins a revision, so this repository records a set of revisions known to work
+together. Updating is a deliberate commit:
 
 ```bash
 git submodule update --remote
 ```
 
-That is a feature rather than a chore. obSCEne's dependency on SELFish means the two can
-disagree, and a parent repository that pins both is the only place a combination is
-recorded as having been tried.
+## Private repositories
+
+A workflow's `GITHUB_TOKEN` reads only its own repository, so `bootstrap` cannot clone a
+private sibling with it; it takes `OOPS_CI_TOKEN` instead ([BUILDING.md](BUILDING.md#a-private-sibling)).
+GitHub Pages does not serve a private repository on the free plan, and each project's
+`pages.yml` runs only when `github.event.repository.visibility == 'public'`.

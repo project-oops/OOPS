@@ -1,51 +1,37 @@
 # Glossary
 
-The vocabulary these projects are written in, for somebody who has not done systems or
-emulator work before.
+The vocabulary the projects are written in, for a reader new to systems or emulator work.
 
-It is in two halves, and they are not equally hard. Most of what looks like jargon is
-**standard ELF** - a file format from about 1990 that Linux, BSD and Android all use, written
-down in the System V ABI and explained in a hundred places outside this collection. Learn it
-once and it pays off everywhere. The rest is **the vendor's extensions to it**, which have no
-public specification at all, and that half is what this collection had to work out.
+Part one is standard ELF, the format Linux and BSD use, specified in the System V ABI. Part two
+is the vendor's extensions to it, which have no public specification. Part three lists words
+the collection uses in more than one sense.
 
-Knowing which half a term belongs to is most of the battle, so that is how this file is
-arranged.
-
-## What is deliberately not here
-
-**The five words for our own layers** - guest, host, loader, target, implementation - are
-[CONVENTIONS.md §2](CONVENTIONS.md#the-words-for-our-own-layers). They are a *rule* about what
-to write, not a reference for what you are reading, and repeating them here would give one
-fact two homes.
-
-**The format facts** - what `DT_SCE_FINGERPRINT` holds, which magic belongs to which
-generation - are [SELFish's glossary](https://github.com/project-oops/SELFish/blob/main/docs/GLOSSARY.md)
-and the `data/*.tsv` tables beside it. That repository exists to be the single home for format
-knowledge (SELFish D200), so this page links to it rather than restating it.
-
----
+The words for our own layers (guest, host, loader, target, implementation) are defined in
+[CONVENTIONS section 2](CONVENTIONS.md#the-words-for-our-own-layers). Format facts, such as
+what `DT_SCE_FINGERPRINT` holds, are in
+[SELFish's glossary](https://github.com/project-oops/SELFish/blob/main/docs/GLOSSARY.md) and its
+`data/*.tsv` tables.
 
 ## Part one: ELF, which is standard
 
-An ELF file is a program or a library. The parts of it you will see named in these projects:
+An ELF file is a program or a library.
 
-### The prefixes, which is the thing nobody tells you
+### Prefixes
 
 | Prefix | Stands for | What it is |
 |---|---|---|
-| `PT_` | **P**rogram header **T**ype | An instruction to the loader: "map this stretch of the file at this address, with these permissions." One entry per **segment**. |
-| `DT_` | **D**ynamic **T**able tag | One entry in a list of `(tag, value)` pairs that tells the runtime linker how to finish wiring the program up. |
-| `SHT_` | **S**ection **H**eader **T**ype | The linker's view of the file. Mostly irrelevant once the thing is running. |
-| `ET_` | **E**LF **T**ype | What kind of object this is: `ET_EXEC` a program, `ET_DYN` a shared object or position-independent program, `ET_REL` an object file. |
+| `PT_` | Program header Type | An instruction to the loader: "map this stretch of the file at this address, with these permissions." One entry per **segment**. |
+| `DT_` | Dynamic Table tag | One entry in a list of `(tag, value)` pairs that tells the runtime linker how to finish wiring the program up. |
+| `SHT_` | Section Header Type | The linker's view of the file. Mostly irrelevant once the thing is running. |
+| `ET_` | ELF Type | What kind of object this is: `ET_EXEC` a program, `ET_DYN` a shared object or position-independent program, `ET_REL` an object file. |
 | `SCE_` inside any of the above | the vendor's own | An extension using the same mechanism with private numbers. Part two. |
 
-**Segments against sections.** Two views of the same bytes. Sections (`.text`, `.bss`) are how
+Segments and sections are two views of the same bytes. Sections (`.text`, `.bss`) are how
 the linker thinks; segments (`PT_LOAD`) are how the loader thinks. A segment usually contains
 several sections. When a report talks about "segment 0's copied run", it means the bytes a
 `PT_LOAD` told the loader to map.
 
-### The dynamic tags you will actually meet
+### Dynamic tags
 
 The `.dynamic` section is a list that ends at `DT_NULL`. The runtime linker walks it.
 
@@ -59,38 +45,34 @@ The `.dynamic` section is a list that ends at `DT_NULL`. The runtime linker walk
 | `DT_STRTAB` / `DT_SYMTAB` | Where the strings and the symbols live. Every name in the file is an offset into the string table. |
 | `DT_NULL` | End of the list. |
 
-So a line like `DT_INIT_ARRAY / SZ - both 0x0` means: the file declares it has startup
-functions, and then says there are none. Whether that is "nothing runs at load" or "the tag is
-a formality" is exactly the sort of question these projects have to settle by measurement.
+`DT_INIT_ARRAY / SZ - both 0x0` means the file declares a list of startup functions and gives
+it no entries.
 
-### Sections you will see named
+### Sections
 
 | Name | What is in it |
 |---|---|
 | `.text` | The code. |
 | `.rodata` | Constants - string literals, lookup tables. |
 | `.data` | Variables that start at some value, so their bytes are in the file. |
-| `.bss` | Variables that start at **zero**. No bytes in the file at all: just a note saying "reserve this much and zero it". This is why "the `.bss` is filled by the game calling in" is a claim worth testing - something has to do that zeroing. |
+| `.bss` | Variables that start at zero. No bytes in the file: a size to reserve and zero at load. |
 
-### Two more you will meet
+### Other fields
 
 - **Entry point** (`e_entry`) - the address of the first instruction. `0x0` means the file
   declines to name one, which is normal for a library and notable for a program.
 - **`EI_ABIVERSION`** - one byte near the start of the file. Standard ELF barely uses it; the
-  vendor does, which is why it appears in obSCEne's artifact table.
+  vendor does, and obSCEne's artifact table shows it.
 
 ### Where to read more
 
-The System V ABI and the ELF specification are the primary sources, and `man 5 elf` on any
-Linux machine is a good first stop. Nothing in part one is specific to this collection, so a
-general answer found elsewhere is a trustworthy answer.
-
----
+The System V ABI and the ELF specification are the primary sources; `man 5 elf` on any Linux
+machine is a short reference.
 
 ## Part two: the vendor's extensions
 
-Same mechanisms, private numbers, no public specification. These are defined in **SELFish**,
-because that is where the tables that establish them live:
+The same mechanisms with private numbers. They are defined in SELFish, whose tables establish
+them:
 
 | Term | One line | Defined in |
 |---|---|---|
@@ -99,56 +81,41 @@ because that is where the tables that establish them live:
 | **fSELF** | A "fake" signed executable container - the shape a non-retail build takes | SELFish `selfish-container` |
 | **PFS** | The filesystem inside a package | SELFish `selfish-pfs` |
 | **keystone**, **playgo**, **param.sfo**, **param.json** | Pieces a package or title directory carries besides the program itself | SELFish `selfish-pkg`, `selfish-title` |
-| **`applicationCategoryType`** | An integer in `param.json` (`CATEGORY` in `param.sfo`) governing hardware budget (DMEM) and HDMI scanout ownership (`0` = Big App, `65536` = System App, `131072` = Mini App) | SELFish `selfish-title`, obSCEne D301 |
-| **`paid`** (Program Authority ID) | A 64-bit value in the SELF header governing process privilege tier (`app`, `system`, `root`). Orthogonal to application category | SELFish `selfish-container`, obSCEne D301 |
+| **`applicationCategoryType`** | An integer in `param.json` (`CATEGORY` in `param.sfo`) governing hardware budget (DMEM) and HDMI scanout ownership (`0` = Big App, `65536` = System App, `131072` = Mini App) | SELFish `selfish-title` |
+| **`paid`** (Program Authority ID) | A 64-bit value in the SELF header governing process privilege tier (`app`, `system`, `root`). Orthogonal to application category | SELFish `selfish-container` |
 
-Follow those to [SELFish's glossary](https://github.com/project-oops/SELFish/blob/main/docs/GLOSSARY.md);
-this page does not restate them.
-
----
+[SELFish's glossary](https://github.com/project-oops/SELFish/blob/main/docs/GLOSSARY.md) has
+them in full.
 
 ## Part three: one word, two meanings
 
-These are ordinary English words the collection uses in more than one technical sense. This is
-the part most likely to mislead, because nothing looks wrong.
+Ordinary words the collection uses in more than one technical sense.
 
 | Word | In obSCEne | In orbistoun | Elsewhere |
 |---|---|---|---|
-| **check** | *the* unit of measurement: one question asked of a loader, with a verdict. A check whose prerequisites failed is **skipped, not failed** | | `oops check <project>` - the CI gate. Unrelated |
-| **shape** | one of the artifact forms - payload, injector, module, title directory, package - told apart by two bytes at offset 16 | an **instruction** shape: an opcode's operand layout (orbistoun#D123) | |
+| **check** | the unit of measurement: one question asked of a loader, with a verdict. A check whose prerequisites failed is skipped, not failed | | `oops check <project>` - the CI gate. Unrelated |
+| **shape** | one of the artifact forms - payload, injector, module, title directory, package - told apart by two bytes at offset 16 | an instruction shape: an opcode's operand layout (orbistoun#D123) | |
 | **corpus** | the mined NID corpus, or the golden GPU corpus | the test corpus of titles (orbistoun#D042), or the shader corpus (orbistoun#D088) | |
 | **probe** | obSCEne itself, and `obscene-probe.*` the artifacts | | in SELFish, a diagnostic program under `examples/` that prints and ships nothing |
 | **section** | a group of related checks in the report, ordered base to high level | | in ELF, a named region of the file. Both senses are live in obSCEne |
-| **payload** | a plain ELF a homebrew loader maps and runs | | Prosperous sends payloads; Porthole is one that is not finished |
-| **target** | the machine an artifact is **built for**: `orbis`, `neo`, `prospero`, `trinity` (oops-sdk's `target.h`) | same, when naming an artifact | Prosperous: a **machine it has registered**, by name and address. Download manifests: **where a fetched artifact is installed**. oops-libs docs: the far **side** of the host/target boundary |
-| **Orbis** | one of the two build-target values, the **previous hardware generation** (with `neo` its Pro refresh) | the platform's **operating system**, the thing being reimplemented - Orbistoun is named for it | "Orbis software" and "Orbis OS" mean software for that OS **across generations**, not the previous generation specifically. So Prosperous "runs Orbis software" is a Prospero-generation tool running OS software, not a contradiction |
+| **payload** | a plain ELF a homebrew loader maps and runs | | Prosperous sends payloads; Porthole is one |
+| **target** | the machine an artifact is built for: `orbis`, `neo`, `prospero`, `trinity` (oops-sdk's `target.h`) | same, when naming an artifact | Prosperous: a machine it has registered, by name and address. Download manifests: where a fetched artifact is installed. oops-libs docs: the far side of the host/target boundary |
+| **Orbis** | a build-target value: the previous hardware generation (with `neo` its mid-generation refresh) | the platform's operating system, which Orbistoun reimplements and is named for | "Orbis software" means software for that operating system on either generation |
 
-**`Orbis` is a genuine two-sense word, not a mistake to sweep.** As a build target or a hardware
-generation it is the previous machine, paired against `prospero`. As the operating system's own
-name it spans both generations - which is why the mission is "Running Orbis software" and why a
-Prospero-generation tool can still "run Orbis software" without contradiction. Say
-**Orbis-generation** when you mean the hardware; bare **Orbis** is the OS.
+Say Orbis-generation for the hardware; bare Orbis is the operating system. Write build target,
+registered target or install target wherever two senses of `target` could be read, and
+host-side for the boundary ([CONVENTIONS section 2](CONVENTIONS.md#the-four-axes-of-a-build-and-a-run)).
 
-**`target` is the worst of these and the newest**, carrying four live senses at once. Write
-**build target**, **registered target** or **install target** wherever two could be read; the
-host/target *side* sense is fixed by pairing it with "host-side", which is what oops-libs does.
-[CONVENTIONS section 2](CONVENTIONS.md#the-four-axes-of-a-build-and-a-run) has the full table and
-the reasoning.
+A build names four axes: target (built for), format (`elf`, `eboot`, `title`, `pkg`), category
+(`applicationCategoryType`, part two) and context (the environment a run is measured to be in,
+obSCEne's `OBS|context`). An artifact can carry the first three in its name, never the fourth.
 
-**The axis `target` belongs to has three siblings**, and they are worth knowing together because
-a build names all four: **target** (built for), **format** (`elf`, `eboot`, `title`, `pkg`),
-**category** (`applicationCategoryType`, defined in part two above), and **context** (the
-environment a run *turned out* to be in, which is measured rather than chosen and is obSCEne's
-`OBS|context`). An artifact can carry the first three in its name. It can never carry the fourth.
-
-**census** and **sweep** are obSCEne's alone: a census is the list of platform symbols it knows
+Census and sweep are obSCEne's words: a census is the list of platform symbols it knows
 about, and a sweep is a repeated run that narrows something down.
 
----
+## Per-project glossaries
 
-## The rest
-
-Vocabulary that belongs to exactly one project lives with that project:
+Vocabulary that belongs to one project lives with that project:
 
 - [orbistoun](https://github.com/project-oops/Orbistoun/blob/main/docs/GLOSSARY.md) - guest execution, thunks, stubs, HLE
 - [obSCEne](https://github.com/project-oops/obSCEne/blob/main/docs/GLOSSARY.md) - checks, sections, the census, the harness and its sinks

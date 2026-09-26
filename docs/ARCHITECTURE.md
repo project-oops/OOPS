@@ -1,19 +1,14 @@
-# How the four fit together
+# Architecture
 
-[README.md](../README.md) says what each project is. This says how they meet, what crosses
-a boundary between them, and which of those crossings is a decision nobody has made yet.
+How the projects meet: what crosses a boundary between them, and how the separate
+repositories relate to the one working copy. [README.md](../README.md) says what each project
+is; [BUILDING.md](BUILDING.md#dependencies) lists the dependency edges.
 
-The oracle problem - why there are four rather than one - is in
-[the README](../README.md#the-core-concept-the-loop) and is not
-restated here.
+## Compile-time edges
 
-## What crosses a boundary
-
-**By dependency - the compile-time edges:**
-
-obSCEne's tooling reaches into **three** siblings by relative path - SELFish for the formats,
-Prosperous for the link layer and process control, and oops-libs for the build stamp and
-logging every tool shares:
+obSCEne's host tooling reaches three siblings by relative path: SELFish for the formats,
+Prosperous for the link layer and process control, and oops-libs for the build stamp, logging
+and paths every tool shares.
 
 ```toml
 selfish-abi       = { path = "../../selfish/crates/selfish-abi" }
@@ -27,173 +22,55 @@ oops-log          = { path = "../../oops-libs/crates/oops-log" }
 oops-paths        = { path = "../../oops-libs/crates/oops-paths" }
 ```
 
-There is a fourth edge that is not a Cargo one: obSCEne's `Makefile` links **oops-sdk**'s C
-sources into the module and the eboot, and builds its payloads on oops-sdk's runtime. A
-freestanding-C dependency does not show up in a manifest, but it is a compile-time edge like
-the rest.
+The C edges do not appear in a manifest. obSCEne's `Makefile` compiles oops-sdk's sources into
+its module, eboot and payloads. Every app in oops-apps includes `../../oops-sdk/oops-sdk.mk`
+and compiles the SDK into its own payload. oops-mesa carries upstream Mesa's radeonsi route
+onto the target to give applications OpenGL, builds on oops-sdk's runtime through
+`oops-mesa.mk`, and supplies the generated preamble a GL app such as gl1-cube includes.
+oops-sdk's own `gl.h` is a fixed-function instrument, and the two GL implementations never link
+into one title (oops-sdk#D007).
 
-oops-apps has the same kind of edge from the other side. Every app's `Makefile` includes
-`../../oops-sdk/oops-sdk.mk` and compiles the SDK's sources into its own payload, so it
-depends on the collection without anything in the collection depending on it. It is swept by
-`bin/oops` anyway, for the reason a consumer is: a change to the SDK that breaks an app
-should fail here, not in a clone somebody makes later.
-
-oops-mesa sits beside oops-sdk the same way. It carries upstream Mesa's radeonsi route onto the
-target to give applications OpenGL 3.3, its `oops-mesa.mk` builds on oops-sdk's runtime, and a GL
-app such as gl1-cube pulls its generated preamble in turn. oops-sdk's own `gl.h` is a fixed-function
-instrument by contrast, and the two GLs never link into one title (oops-sdk#D007) - a boundary
-drawn on purpose rather than an accident of layout.
-
-A relative path out of the repository is unusual and worth being explicit about. It works
-under this repository because submodules sit side by side, and it works in the development
-layout because the checkouts are siblings. It does **not** work in a lone clone of obSCEne,
-which needs SELFish beside it.
-
-The alternative is a git dependency on the whole of SELFish, which would make obSCEne
-clone-and-build on its own at the cost of pinning a revision in two places. Neither is
-obviously right; the path dependency is what exists.
-
-**What is not an alternative**, and this is a harder constraint than it looks: several of
-SELFish's crates read data files from *outside their own package root* -
+A path out of the repository works because the submodules sit side by side. A lone clone of
+obSCEne does not build without SELFish beside it. A git dependency on SELFish is not an
+alternative for individual crates: several of them read data files outside their own package
+root,
 
 ```rust
 const FORMAT: &str = include_str!("../../../data/self-format.tsv");
 ```
 
-- and every crate is `publish = false`. So `cargo package`, `cargo vendor` and
-`cargo publish` cannot work on an individual SELFish crate. Only a **path dependency** or a
-**whole-repository git dependency** does.
+and every crate is `publish = false`, so `cargo package`, `cargo vendor` and `cargo publish`
+cannot work on one crate. Only a path dependency or a whole-repository git dependency does.
+This follows from SELFish's rule that its format tables are the source of truth and the code
+reads them.
 
-That is a deliberate consequence of SELFish's own rule that its format tables are the source
-of truth and the code reads them rather than carrying a copy. It is worth stating here
-because it removes the option a reader would otherwise reach for first, and because it means
-the sibling layout is not a convenience - it is one of only two arrangements that work.
+## Artefact edges
 
-**By artefact - the edges that carry the actual work:**
-
-- obSCEne builds a guest module. Orbistoun loads it exactly as it loads a commercial title.
-  No code is shared in either direction; the interface is the platform's own module format.
-- Prosperous delivers that same module to real hardware and reads back what it printed.
-- obSCEne's reports are consumed as data by Orbistoun and compared across emulators.
+- obSCEne builds a guest module, and Orbistoun loads it as it loads any title. No code is
+  shared; the interface is the platform's module format.
+- Prosperous delivers the same module to the hardware and reads back what it printed.
+- obSCEne's reports are data to Orbistoun, compared across loaders.
 - Porthole, in oops-apps, is the target half of Prosperous's capture-and-input path, and
-  Prosperous is its host half. No code is shared between them either; what crosses is the
-  payload, and what it puts on the wire.
+  Prosperous is the host half. What crosses is the payload and its wire protocol.
 
-**By document:**
+## Two ELF readers
 
-Findings that matter on both sides belong in a document rather than in one project's
-decision log. obSCEne's handover notes answered questions about the platform's dynamic
-table before Orbistoun spent an afternoon rediscovering them.
-
-## The one duplication, and why it is a question rather than a bug
-
-SELFish and Orbistoun both have crates called `abi`, `elf` and `nid`. The same three
-formats, parsed twice, in two repositories.
-
-The tidy-minded answer is that Orbistoun should depend on SELFish and delete its own. That
-may well be right, and it is not obviously right, because:
-
-- **Orbistoun's parsers are bound by a provenance rule.** Everything in that repository has
-  to be explicable from a lawful source, and its parsers were written under that rule with
-  that history recorded. Adopting another lineage of the same format means adopting - and
-  re-verifying - its provenance too.
-- **SELFish's rule is stricter in a different direction**: formats from citable sources
-  only, with real files as an oracle and never a source. That is a stronger claim than
-  Orbistoun makes, and inheriting it may be a gain rather than a cost.
-- **Two independent readings of one format have value.** Where they disagree, one of them
-  is wrong, and nothing else in this collection can tell you that. Merging them removes a
-  check that has already been useful elsewhere.
-
-**The structural objection has gone, which sharpens the question rather than settling it.**
-Development happens with all four checked out, so Orbistoun depending on SELFish would cost
-nothing in build arrangement - there is no friction argument left on either side. What
-remains is entirely about provenance: whether two lineages should be merged, whose rule the
-merged one inherits, and what is lost when two independent readings become one.
-
-**Nothing here decides it.** What this document records is that the duplication is known,
-that the remaining arguments are about provenance and not convenience, and that whoever
-resolves it should write down which argument won. It should not be quietly tidied away by
-someone who noticed the overlap and assumed it was an accident.
-
-## The licence question, which is also open
-
-The four intend to ship MIT/Apache. Much of what they know about the platform's formats was
-read from projects that are copyleft - LibOrbisPkg is LGPL-3, ps5upload states GPL-3, and the
-others carry licences of their own. Every one of them is credited, per file and per structure,
-in the consuming project's `ACKNOWLEDGEMENTS.md`.
-
-**Most of this is not the problem it first looks like**, and the reasons are worth writing down
-once so nobody re-derives them in a hurry:
-
-- **No code was copied**, and the arrangement in [conventions §1](CONVENTIONS.md#1-provenance-is-a-hard-boundary)
-  is what makes that checkable rather than asserted: a fact goes into `data/` with a header
-  naming its source, and the implementation is written from the table.
-- **Facts are not the licensed thing.** An offset, a field name, the order blocks are signed
-  in - these describe a file that exists. They are the same facts whoever writes them down, and
-  a licence on a program does not reach them.
-- **LGPL-3 in particular** is the licence written to permit exactly this kind of use, and it is
-  the one covering the densest single dependency.
-
-**What is not settled** is that "the whole filesystem-writing layout" - `selfish`'s own words
-for what it took from four `PFS/` files and `Util/Crypto.cs` - is the largest amount any one
-source contributed, and layout at that density is where a table of facts starts shading into
-someone's design. SELFish's `data/pkg-format.tsv` header names each source and which rows real
-packages settled; that density is what would need answering.
-
-**Nothing here decides it.** What this records is that the question is known, that it is about
-one dependency rather than the practice in general, and that the time to answer it is *before*
-the first push rather than after - [PUBLISHING.md](PUBLISHING.md) is the point of no return,
-because a licence asserted over published code is much harder to revise than one asserted over
-a directory. Whoever resolves it should write down which argument won, and in which project's
-log.
+SELFish and Orbistoun each parse the ELF, ABI and NID formats. Orbistoun's reader loads
+guests; `selfish-elf` is its dev-dependency, used only by a differential test that runs both
+readers over the corpus and reports every field on which they disagree (orbistoun#D653).
 
 ## Separate repositories, one working copy
 
-The split is about **distribution and identity, not about source-level independence**.
+Development happens in this repository, where every project is present and builds against
+the others. Each project has its own repository because it has its own audience, releases and
+issue tracker: obSCEne is a conformance suite that can run against any loader, Prosperous is a
+hardware instrument, SELFish is a format library worth depending on from outside.
 
-Development happens in this repository, where all eight are present and build against each
-other. The separate repositories exist because each project has its own audience, its own
-releases and its own issue tracker: obSCEne is a conformance suite somebody might run
-against a different emulator entirely, Prosperous is the hardware instrument whoever wrote the
-payload, SELFish is a format library worth depending on from outside. Those are four
-different conversations, and one repository would make them one.
+A cross-repository dependency therefore costs nothing structural. What each repository owes
+its audience is a release, a binary or a versioned library, not a checkout that builds alone.
 
-**So a cross-repository dependency is not a cost to be minimised.** The development layout
-always has all eight checked out side by side; obSCEne reaching into SELFish costs nothing
-structural, and neither would Orbistoun. What each repository owes its own audience is a
-**release** - a binary, or a versioned library dependency - not a checkout that builds in
-isolation.
+## Citing across projects
 
-That inverts what would otherwise be the obvious worry. The question is not "can this be
-cloned alone" but "does this ship something on its own", and all four pillars do.
-
-## Citing a decision in another project
-
-Each project numbers its decisions `D001` upward, independently. With four of them that is
-already ambiguous, and it has already gone wrong: one repository cites "decision D049"
-meaning another project's, and "(D049-D053)" meaning its own, **ten lines apart in the same
-file**. A reader has no way to tell.
-
-Where a document cites a decision that is not its own repository's, qualify it:
-
-```
-orbistoun#D242        not     orbistoun's D242
-selfish#D049          not     D049
-```
-
-The same applies to project names that are nearly each other. `prosperity` is a third-party
-project and `prosperous` is one of ours; they differ by one letter and have already
-appeared in the same table with nothing marking which is which.
-
-## Conventions
-
-The shared rules live in [CONVENTIONS.md](CONVENTIONS.md), and this file is not that - it
-describes how the pieces fit, not the rules they hold to. What CONVENTIONS.md states once -
-provenance, naming, honest failure, decision logs, worklogs, gates - each project then states
-only what it *adds*, and those additions differ deliberately: Orbistoun's provenance rules
-exist because it reimplements a platform, and would be ceremony in a hardware instrument.
-
-What every project has in common is the shape: a `README`, a principles file, a numbered
-decision log with reasoning, and a worklog. Where a project has drifted from its own stated
-conventions, that is a fault in that project rather than something for this repository to
-enforce.
+Each project numbers its decisions from `D001`. A citation of another project's decision names
+the project: `orbistoun#D242`, never a bare `D242` (CONVENTIONS section 9). `prosperity` is a
+third-party project; `prosperous` is ours.
