@@ -19,7 +19,7 @@ be publishable.
   expression and are never taken.
 - **Facts go through `data/`.** A fact read from someone's source is recorded in `data/` as
   text, with a header naming exactly where it came from, and the implementation is written
-  from that record. Anyone with the same inputs can re-derive the table (`obscene#D182`,
+  from that record. Anyone with the same inputs can re-derive the table (`obscene#D018`,
   `selfish#D035`).
 - **Credit what was consulted** in that repository's `ACKNOWLEDGEMENTS.md`, in the same change.
 - **Keys.** Vendor keys are excluded unconditionally. A community keyset that is already
@@ -77,7 +77,7 @@ No vendor brand names in prose or in our own API. The collection keeps a low pro
 | **target** | `orbis`, `neo`, `prospero`, `trinity` | the machine an artifact is built for | `oops-sdk/include/oops/target.h`, `selfish --target` |
 | **format** | `elf`, `eboot`, `title`, `pkg` | the shape an artifact is delivered as | `selfish --format` |
 | **category** | `BIG_APP`, `SYSTEM_APP`, `MINI_APP`, `DAEMON`, `MEDIA_APP` | what a title declares itself to be | the title manifest, `selfish --category` |
-| **context** | `<delivery>/<generation>`, e.g. `payload/orbis-compat` | the environment a run landed in | measured at run time, obSCEne's `OBS\|context` (`obscene#D275`) |
+| **context** | `<delivery>/<generation>`, e.g. `payload/orbis-compat` | the environment a run landed in | measured at run time, obSCEne's `OBS\|context` record |
 
 - **Qualify `target`.** "Build target" for the axis above, "registered target" for a machine
   Prosperous knows (`pros register`), "install target" for a download manifest's destination,
@@ -86,7 +86,7 @@ No vendor brand names in prose or in our own API. The collection keeps a low pro
 - `neo` and `trinity` are the mid-generation refreshes of `orbis` and `prospero`. An artifact
   for any previous-generation machine is `orbis`; `neo` means Pro-specific.
 - **Context is measured, never chosen.** The same machine answers differently depending on the
-  environment a run lands in (`obscene#D276`), so an artifact carries no context and `selfish`
+  environment a run lands in (`obscene#D121`), so an artifact carries no context and `selfish`
   has no `--mode`.
 - **Category is the build-side lever on context.** The loader denies a previous-generation
   category the current generation's libraries.
