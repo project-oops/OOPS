@@ -175,7 +175,8 @@ while IFS= read -r md; do
     # Relative `.md` links become `.html`; `[^":]*` leaves links with a scheme alone.
     sed -i -E 's|href="([^":]*)\.md(#[^"]*)?"|href="\1.html\2"|g' "$dest"
 
-    title="$(sed -n 's/^# \(.*\)/\1/p' "$md" | head -1)"
+    # The first `# ` line, read without a pipe: `head` closing early fails it under pipefail.
+    title="$(sed -n '/^# /{s/^# //p;q;}' "$md")"
     [ -n "$title" ] || title="${rel%.md}"
     index_rows="${index_rows}$(group_of "$md")|${rel%.md}.html|${rel%.md}|${title}
 "
