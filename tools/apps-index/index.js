@@ -306,6 +306,12 @@
     overlay.hidden = false;
     document.body.style.overflow = "hidden";
     document.getElementById("close").focus();
+    /* Reflect the open card in the URL so it can be linked or refreshed to. */
+    try {
+      history.replaceState(null, "", "#" + encodeURIComponent(app.name));
+    } catch (e) {
+      location.hash = encodeURIComponent(app.name);
+    }
   }
 
   function renderDownloads(container, assets) {
@@ -334,6 +340,31 @@
   function closeDetail() {
     overlay.hidden = true;
     document.body.style.overflow = "";
+    /* Drop the card fragment so the URL is the plain index again. */
+    if (location.hash) {
+      try {
+        history.replaceState(null, "", location.pathname + location.search);
+      } catch (e) {
+        location.hash = "";
+      }
+    }
+  }
+
+  /* Hash routing: `#<app-name>` deep-links a card's detail, so a link like
+   * project-oops.github.io/oops-apps/#gl1-cube opens straight to that card. */
+  function appByName(name) {
+    var want = String(name).toLowerCase();
+    for (var i = 0; i < APPS.length; i++) {
+      if (String(APPS[i].name).toLowerCase() === want) return APPS[i];
+    }
+    return null;
+  }
+
+  function openFromHash() {
+    var name = decodeURIComponent((location.hash || "").replace(/^#/, ""));
+    var app = name ? appByName(name) : null;
+    if (app) openDetail(app);
+    else if (!overlay.hidden) closeDetail();
   }
 
   document.getElementById("close").addEventListener("click", closeDetail);
@@ -343,6 +374,7 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !overlay.hidden) closeDetail();
   });
+  window.addEventListener("hashchange", openFromHash);
 
   search.addEventListener("input", function () {
     query = search.value.trim().toLowerCase();
@@ -358,4 +390,5 @@
   buildFilters();
   buildStatusFilters();
   render();
+  openFromHash();
 })();
