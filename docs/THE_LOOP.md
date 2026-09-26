@@ -94,7 +94,7 @@ On real console firmware, **privileges, sandboxing, and library resolution chang
   3. **Hardware Dispatch**: Dispatches the probe to `obSCEne` on the PS5 via `pros`.
   4. **Conforming Implementation**: Telemetry from `klog` is translated into typed Rust HLE structs tagged `known_by: measured`.
   5. **Gated Verification**: The title is re-run. If the trace verdict is `FURTHER`, the patch is kept. If it regresses (`BACK`), it is reverted.
-- **The Agentic Stack**: Autonomous closed-loop translation is driven by our tiered LLM developer stack: **Gemini 3.8 Flash** as the primary workhorse, **Claude Opus 5** for compiler/architectural reasoning, and **Fable 5.1** for verification sweeps. Operational guidelines and classifier mitigation rules are documented in [AGENTS.md](../AGENTS.md#5-coding-agent-tiering--llm-developer-toolchain).
+- **The Agentic Stack**: Autonomous closed-loop translation is driven by our tiered LLM developer stack: **Gemini 3.8 Flash** as the primary workhorse, **Claude Opus 5** for compiler/architectural reasoning, and **Fable 5.1** for verification sweeps. Operational guidelines and classifier mitigation rules are documented in [AGENTS.md](../AGENTS.md#4-models).
 
 ---
 

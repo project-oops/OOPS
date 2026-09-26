@@ -148,44 +148,14 @@ for project in $WANTED; do
                 else firstline[enum[i]] = eline[i]
             }
 
-            # 3. A gap is either a withdrawn decision - which should say so rather than vanish -
-            #    or a number claimed somewhere else and never written up. Reported per RUN of
-            #    consecutive numbers: append D999 to a log ending at D024 and per-number
-            #    reporting prints nine hundred lines that all say the same thing.
-            lo = hi = enum[1]
-            for (i = 1; i <= n; i++) { if (enum[i] < lo) lo = enum[i]; if (enum[i] > hi) hi = enum[i] }
-            run_start = 0
-            for (v = lo; v <= hi + 1; v++) {
-                gap = (v <= hi && !(v in firstline))
-                if (gap && run_start == 0) run_start = v
-                if (!gap && run_start != 0) {
-                    run_end = v - 1
-                    if (run_start == run_end)
-                        emit(ident(run_start), "missing", 0, "missing from the run")
-                    else
-                        emit(sprintf("D%03d-D%03d", run_start, run_end), "missing", 0,
-                             sprintf("D%03d..D%03d missing from the run (%d numbers)",
-                                     run_start, run_end, run_end - run_start + 1))
-                    run_start = 0
-                }
-            }
+            # Gaps and date order are not checked: a decision that changes is edited and
+            # redated in place, and one that no longer holds is deleted (STYLE, decisions).
 
-            # 4. No commit history predates the first push, so the date on an entry is the
-            #    only record of when it was made.
+            # 3. Every entry carries a date.
             for (i = 1; i <= n; i++)
                 if (edate[i] == "") emit(ident(enum[i]), "undated", eline[i], "undated")
 
-            # 5. Dates that run backwards mean either the order is wrong or a date is.
-            prev = ""
-            for (i = 1; i <= n; i++) {
-                if (edate[i] == "") continue
-                if (prev != "" && edate[i] < prev)
-                    emit(ident(enum[i]), "date-backwards", eline[i],
-                         sprintf("dated %s, after D%03d dated %s", edate[i], prevnum, prev))
-                prev = edate[i]; prevnum = enum[i]
-            }
-
-            # 6. A heading with no title is a heading you cannot skim. The strip set carries
+            # 4. A heading with no title is a heading you cannot skim. The strip set carries
             #    both dash marks because the logs predate the house style and contain both.
             for (i = 1; i <= n; i++) {
                 t = erest[i]

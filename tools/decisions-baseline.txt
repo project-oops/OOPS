@@ -201,10 +201,6 @@ obscene D213 undated
 obscene D214 undated
 obscene D215 undated
 obscene D216 undated
-orbistoun D104 date-backwards
-orbistoun D106 date-backwards
-orbistoun D113 date-backwards
-orbistoun D117 date-backwards
 orbistoun D054 duplicate
 orbistoun D055 duplicate
 orbistoun D056 duplicate
@@ -218,7 +214,6 @@ orbistoun D127 duplicate
 orbistoun D128 duplicate
 orbistoun D129 duplicate
 orbistoun D130 duplicate
-orbistoun D337-D339 missing
 orbistoun D101 undated
 orbistoun D107 undated
 orbistoun D109 undated
@@ -261,7 +256,6 @@ prosperous D021 undated
 prosperous D022 undated
 prosperous D023 undated
 prosperous D024 undated
-selfish D069 missing
 selfish D001 undated
 selfish D002 undated
 selfish D003 undated

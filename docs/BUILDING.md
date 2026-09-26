@@ -139,7 +139,7 @@ what its CI runs:
 [obSCEne](https://github.com/project-oops/obSCEne/blob/main/docs/BUILDING.md) ·
 [Prosperous](https://github.com/project-oops/Prosperous/blob/main/docs/BUILDING.md) ·
 [SELFish](https://github.com/project-oops/SELFish/blob/main/docs/BUILDING.md) ·
-[oops-libs](https://github.com/project-oops/oops-libs/blob/main/docs/BUILDING.md) ·
+[oops-libs](https://github.com/project-oops/oops-libs/blob/main/README.md#building) ·
 [oops-sdk](https://github.com/project-oops/oops-sdk/blob/main/docs/BUILDING.md) ·
 [oops-apps](https://github.com/project-oops/oops-apps#building-an-app)
 
