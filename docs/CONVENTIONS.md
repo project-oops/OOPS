@@ -20,7 +20,7 @@ be publishable.
 - **Facts go through `data/`.** A fact read from someone's source is recorded in `data/` as
   text, with a header naming exactly where it came from, and the implementation is written
   from that record. Anyone with the same inputs can re-derive the table (`obscene#D182`,
-  `selfish#D049`-`D053`).
+  `selfish#D035`).
 - **Credit what was consulted** in that repository's `ACKNOWLEDGEMENTS.md`, in the same change.
 - **Keys.** Vendor keys are excluded unconditionally. A community keyset that is already
   published, reads and writes only files built with it, and unlocks nothing the vendor

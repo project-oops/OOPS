@@ -207,11 +207,11 @@ Following the in-house documentation standard, each project maintains dedicated,
   - [NID Imports & Symbol Resolution](../orbistoun/docs/features/naming.md)
   - [Paths & Portable Storage](../orbistoun/docs/features/paths.md)
 
-- 📦 **SELFish Packaging Recipes**: [**`selfish/docs/features/`**](../selfish/docs/features/README.md)
-  - [User Guide & Syntax](../selfish/docs/features/user-guide.md)
-  - [Signed Executable Wrapping (eboot)](../selfish/docs/features/eboot.md)
-  - [Retail Title Directory Layout](../selfish/docs/features/title.md)
-  - [Encrypted PFS Packages (PKG)](../selfish/docs/features/pkg.md)
+- **SELFish**: [`selfish/docs/USER_GUIDE.md`](../selfish/docs/USER_GUIDE.md)
+  - [Building an eboot](../selfish/docs/USER_GUIDE.md#--format-eboot)
+  - [Title directories](../selfish/docs/USER_GUIDE.md#--format-title)
+  - [Packages](../selfish/docs/USER_GUIDE.md#--format-pkg)
+  - [Reading a file](../selfish/docs/USER_GUIDE.md#reading-a-file)
 
 - 🔬 **obSCEne Probing Modes**: [**`obscene/docs/features/`**](../obscene/docs/features/README.md)
   - [User Guide & Telemetry Grammar](../obscene/docs/features/user-guide.md)

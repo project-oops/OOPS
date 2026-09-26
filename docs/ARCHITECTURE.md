@@ -137,9 +137,8 @@ once so nobody re-derives them in a hurry:
 **What is not settled** is that "the whole filesystem-writing layout" - `selfish`'s own words
 for what it took from four `PFS/` files and `Util/Crypto.cs` - is the largest amount any one
 source contributed, and layout at that density is where a table of facts starts shading into
-someone's design. `selfish#D049`-`D053` record the derivation and note that three things in it
-were not conclusions this project would have reached alone. That candour is the right instinct
-and it is also precisely what would need answering.
+someone's design. SELFish's `data/pkg-format.tsv` header names each source and which rows real
+packages settled; that density is what would need answering.
 
 **Nothing here decides it.** What this records is that the question is known, that it is about
 one dependency rather than the practice in general, and that the time to answer it is *before*
