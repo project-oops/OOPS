@@ -247,15 +247,6 @@ orbistoun D148 undated
 orbistoun D149 undated
 orbistoun D200 undated
 orbistoun D228 undated
-prosperous D016 undated
-prosperous D017 undated
-prosperous D018 undated
-prosperous D019 undated
-prosperous D020 undated
-prosperous D021 undated
-prosperous D022 undated
-prosperous D023 undated
-prosperous D024 undated
 selfish D001 undated
 selfish D002 undated
 selfish D003 undated

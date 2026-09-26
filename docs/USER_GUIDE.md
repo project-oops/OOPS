@@ -186,14 +186,15 @@ In portable mode:
 
 Following the in-house documentation standard, each project maintains dedicated, per-screen modular feature documents with screenshot placeholders and CLI/GUI side-by-side parity:
 
-- 🔌 **Prosperous Features & Screens**: [**`prosperous/docs/features/`**](../prosperous/docs/features/README.md)
-  - [User Guide & Portable Mode](../prosperous/docs/features/user-guide.md)
-  - [Target Browser & Health Matrix](../prosperous/docs/features/targets.md)
-  - [Live Kernel Telemetry Streamer](../prosperous/docs/features/logs.md)
-  - [Remote Storage Browser](../prosperous/docs/features/files.md)
-  - [Title Supervisor & Launcher](../prosperous/docs/features/titles.md)
-  - [Remote Command Shell](../prosperous/docs/features/shell.md)
-  - [Payload Injector](../prosperous/docs/features/payloads.md)
+- **Prosperous**: [`prosperous/docs/guide/`](../prosperous/docs/guide/getting-started.md)
+  - [Getting started](../prosperous/docs/guide/getting-started.md)
+  - [Targets](../prosperous/docs/guide/targets.md)
+  - [Logs](../prosperous/docs/guide/logs.md)
+  - [Files](../prosperous/docs/guide/files.md)
+  - [Titles](../prosperous/docs/guide/titles.md)
+  - [Library](../prosperous/docs/guide/library.md)
+  - [Shell](../prosperous/docs/guide/shell.md)
+  - [Payloads](../prosperous/docs/guide/payloads.md)
 
 - 🎮 **Orbistoun Features & Screens**: [**`orbistoun/docs/features/`**](../orbistoun/docs/features/README.md)
   - [User Guide & Requirements](../orbistoun/docs/features/user-guide.md)
