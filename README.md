@@ -46,7 +46,7 @@ and the code can be shared. That constraint is why the work is split into separa
 ```bash
 git clone --recurse-submodules https://github.com/project-oops/OOPS
 cd OOPS
-./bin/oops setup      # the C toolchain (WSL on Windows)
+./bin/oops setup      # the C toolchain fallback (a local clang 21 on PATH is preferred)
 ./bin/oops doctor     # check this machine can build the collection
 ./bin/oops build      # build every project
 ```
@@ -63,7 +63,7 @@ hardware and running it in the emulator.
 
 - [docs/THE_LOOP.md](docs/THE_LOOP.md) - how the projects feed each other.
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) - building, deploying and emulating a title.
-- [docs/BUILDING.md](docs/BUILDING.md) - `bin/oops`, dependencies, WSL and CI.
+- [docs/BUILDING.md](docs/BUILDING.md) - `bin/oops`, dependencies, toolchain runners and CI.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - what crosses the boundaries between projects.
 - [docs/PUBLISHING.md](docs/PUBLISHING.md) - the repositories and the submodules.
 - [docs/CONVENTIONS.md](docs/CONVENTIONS.md) - the rules every repository follows.

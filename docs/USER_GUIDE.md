@@ -7,8 +7,9 @@ collection's own tools. [THE_LOOP.md](THE_LOOP.md) explains how these steps feed
 ## The tools
 
 The host tools are Rust and run natively on Windows and Linux. Target code is freestanding C,
-cross-compiled with clang 21 in the `silkeh/clang:21` container or the WSL `oops-builder`
-distribution (`./bin/oops setup`).
+cross-compiled with clang 21 - from a local toolchain on `PATH` where there is one, else the
+`silkeh/clang:21` container, else a WSL distribution (`./bin/oops setup`). A local toolchain
+is much the fastest of the three and is what CONVENTIONS section 8 asks for first.
 
 ```bash
 ./bin/oops build selfish prosperous orbistoun
@@ -28,7 +29,7 @@ layout and its overrides.
 
 ```
 [C source]
-    | make, in the container or WSL
+    | make, with a local clang 21 (else the container, else WSL)
     v
 [app.elf] -- selfish --format title --> [title directory, e.g. GLCB00001/]
                                             |-- pros restore, pros launch --> hardware

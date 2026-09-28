@@ -17,7 +17,7 @@ documents state only what it adds to these. Each project keeps its own `docs/`:
 | [STYLE.md](STYLE.md) | how code, comments, documents and commit messages are written |
 | [THE_LOOP.md](THE_LOOP.md) | how the projects feed each other, and when the loop stops for a person |
 | [USER_GUIDE.md](USER_GUIDE.md) | building an app, running it on hardware and in the emulator |
-| [BUILDING.md](BUILDING.md) | `bin/oops`, its verbs, the dependencies between projects, WSL and CI |
+| [BUILDING.md](BUILDING.md) | `bin/oops`, its verbs, the dependencies between projects, toolchain runners and CI |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | what crosses the boundaries between projects |
 | [PUBLISHING.md](PUBLISHING.md) | the repositories, the submodules and cloning |
 | [GLOSSARY.md](GLOSSARY.md) | ELF, the vendor's extensions, and words with two meanings |

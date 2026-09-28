@@ -172,15 +172,24 @@ Every workflow uses the collection's own tools through their canonical interface
 
 ## 8. Toolchain
 
-- **C:** clang 21. `silkeh/clang:21` is the authoritative runner; the WSL `oops-builder`
-  distribution is a permitted faster runner while it reports the same version. Each C
-  repository's `toolchain.mk` refuses the wrong major, and `tools/check-toolchain.sh` checks
-  them together (`oops-mesa#D013`). `CC` exists for a compiler cache and is never used to get
+- **C:** clang 21. The pin is the version, not the runner: each C repository's
+  `toolchain.mk` refuses the wrong major, and `tools/check-toolchain.sh` checks them
+  together (`oops-mesa#D013`). `CC` exists for a compiler cache and is never used to get
   past the pin.
+- **Runners, in order of preference:**
+  1. **A local clang 21 on `PATH`** - a portable unpacked toolchain, nothing installed
+     system-wide. This is the default because it is the fastest by a wide margin: a
+     container or a WSL distribution reaches the sources across a filesystem boundary, and
+     a single header read measured ~10ms that way against ~1ms locally. A build opens
+     hundreds of thousands of files, so that difference is the build time.
+  2. **`silkeh/clang:21`**, which remains the *authoritative definition of the pinned
+     version* - when a local toolchain and the container disagree, the container is right.
+  3. **WSL**, last, and only where neither of the above is available.
 - **orbistoun's shader fixtures** are reproduced by a reference LLVM 18 toolchain
   (`orbistoun#D681`). That pin is independent of the build compiler.
-- Toolchains run in a container first, a portable install second, and a system install only
-  when neither works.
+- A toolchain is unpacked to a directory and put on `PATH` for the session that needs it,
+  never installed system-wide. Where it is unpacked is a property of the machine and is not
+  recorded in any repository here.
 
 ## 9. Working across repositories
 

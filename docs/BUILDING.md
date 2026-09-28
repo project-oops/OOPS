@@ -45,7 +45,7 @@ The rest are `bin/oops` only, because they concern the collection:
 | `git <args...>` | run any git command in the root and every member |
 | `status` | branch and working-tree state of each repository |
 | `doctor` | whether this machine can build the collection |
-| `setup` | install WSL, the `oops-builder` distribution and the toolchain |
+| `setup` | install a build toolchain; on Windows this is the WSL fallback, for a machine with no local clang |
 | `exec "<cmd>" [project...]` | run a command in each project |
 | `list` | the members and whether each is present |
 | `tracer <titleid>` | capture a title's shaders on hardware and rank the shader translator's gaps |
@@ -78,12 +78,36 @@ No project builds from a clone of its own repository alone. Each project's own b
 [oops-sdk](https://github.com/project-oops/oops-sdk/blob/main/docs/BUILDING.md),
 [oops-apps](https://github.com/project-oops/oops-apps#building-an-app).
 
-## Windows, WSL, and why obSCEne is different
+## Windows, and why obSCEne is different
 
 The Rust projects build anywhere. obSCEne, oops-sdk, oops-apps and oops-mesa compile
-freestanding C for the target with `clang` and `lld` (CONVENTIONS section 8). Under Git Bash
-without clang, `bin/oops` runs those four through WSL; `OOPS_NO_WSL=1` refuses instead.
-`oops doctor` reports whether WSL has a distribution with clang in it.
+freestanding C for the target with `clang` and `lld` (CONVENTIONS section 8).
+
+**Prefer a local clang 21 on `PATH`.** Unpack a portable LLVM 21 somewhere and put its `bin`
+on `PATH` for the shell you build in; nothing is installed system-wide and `toolchain.mk`
+checks the version as it would anywhere else. This is not a convenience - it is the
+difference between a build that takes minutes and one that takes a quarter of an hour. Both
+of the alternatives below reach the sources across a filesystem boundary, and a single
+header read measured about 10ms that way against about 1ms locally. A build of a title
+carrying libultraship opens hundreds of thousands of files, so that per-file latency *is*
+the build time.
+
+Two things a native Windows build needs that a Linux one does not, both already handled in
+`oops-apps`:
+
+- **Response files.** The payload link names every object - 102,065 characters for Ship of
+  Harkinian, against Windows' 32,767 command-line limit. `common/deps.mk`'s `oops_rsp`
+  writes the list with `$(file ...)` and passes `@file`, which `clang`, `ld.lld` and
+  `llvm-ar` all read. It is used on every host, so there is one code path rather than two
+  that can disagree.
+- **A Windows-native `make`**, not an MSYS one. Every path in `common/*.mk` is derived from
+  `$(MAKEFILE_LIST)` or `$(CURDIR)`, so they all follow whatever form make reports; a
+  Windows make gives Windows paths that `clang.exe` can open, while an MSYS make gives
+  `/c/...`, which it cannot.
+
+Without a local clang, `bin/oops` runs those four repositories through WSL; `OOPS_NO_WSL=1`
+refuses instead. `oops doctor` reports whether WSL has a distribution with clang in it. WSL
+is the last resort, kept for machines that have neither a local toolchain nor a container.
 
 `./bin/oops setup` (`tools/setup-wsl.sh`) registers a WSL distribution named `oops-builder`
 from the Ubuntu image, runs it as root, and installs the toolchain in it. It installs only what
