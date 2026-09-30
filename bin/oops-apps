@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# oops-apps forwarder: runs oops-apps/bin/oops-apps
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(dirname "$HERE")"
+exec bash "$ROOT/oops-apps/bin/oops-apps" "$@"

@@ -39,6 +39,12 @@ layout and its overrides.
 ### Build and package an app
 
 ```bash
+./bin/oops-apps make src/oops-gl/gl1-cube
+```
+
+Or directly from the app's directory:
+
+```bash
 cd oops-apps/src/oops-gl/gl1-cube
 make title
 ```
@@ -52,9 +58,15 @@ make title
 ```bash
 pros register <address> --name <name>
 pros check
-pros restore build/title/GLCB00001 /data/homebrew/GLCB00001
+./bin/oops-apps restore src/oops-gl/gl1-cube
 pros logs            # in a second terminal, before launching
 pros launch GLCB00001
+```
+
+Or directly with `pros restore`:
+
+```bash
+pros restore oops-apps/src/oops-gl/gl1-cube/build/title/GLCB00001 /data/homebrew/GLCB00001
 ```
 
 `pros check` expects the target's services on ports 9021 (payload loader), 2121 (FTP), 3232

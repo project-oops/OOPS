@@ -1,15 +1,159 @@
 # Building
 
-`bin/oops` drives the whole collection.
+`bin/oops` drives the whole collection, relaying to each repository's own entry point.
 
 ```bash
-./bin/oops build            # every project
-./bin/oops build orbistoun  # one project
-./bin/oops test prosperous
-./bin/oops all              # the collection gates, then every project's check
+./bin/oops doctor           # verify required tools are present
+./bin/oops build            # build every project
+./bin/oops build orbistoun  # build one project
+./bin/oops test prosperous  # test one project
+./bin/oops all              # collection gates, then every project's check
 ```
 
-On Windows outside Git Bash, `bin\oops.cmd` finds Git Bash and runs the same script.
+On Windows, `. X:\toolchains\paths.ps1` (or `call X:\toolchains\paths.cmd`) activates the
+toolchain in the current session, and `bin\oops.cmd` runs the collection verbs.
+
+## Prerequisites and dependencies
+
+The collection consists of host tools in Rust and target software in freestanding C and C++.
+Every dependency runs natively on the host machine.
+
+| Dependency | Purpose | Requirement |
+|---|---|---|
+| **Git** | Repository and submodule management | 2.30+ |
+| **Rust / Cargo** | Host tools (`orbistoun`, `prosperous`, `selfish`, `oops-libs`) | Current stable |
+| **Clang / LLVM** | Target C and C++ cross-compilation (`clang`, `clang++`, `lld`, `llvm-ar`, `llvm-nm`, `llvm-readelf`) | Pinned to major version 21 |
+| **GNU Make** | Target build orchestration (`oops-sdk`, `oops-apps`, `oops-mesa`, `obscene`) | 4.0+ (Windows-native binary on Windows) |
+| **Python 3** | ROM conversion and XML asset pack scripts | 3.10+ (with standard `zipfile` module) |
+| **POSIX utilities** | Shell recipes (`sh`, `find`, `grep`, `sed`, `awk`, `tr`, `sort`, `cut`, `cat`) | Standard coreutils on Linux; Git Bash on Windows |
+
+## Installation instructions
+
+### Linux (Ubuntu / Debian)
+
+1. **System packages and POSIX utilities:**
+   ```bash
+   sudo apt update
+   sudo apt install -y git build-essential python3 curl wget
+   ```
+
+2. **Rust:**
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   source "$HOME/.cargo/env"
+   ```
+
+3. **Clang 21 and LLVM tools:**
+   Install Clang 21 using the official LLVM APT repository:
+   ```bash
+   wget https://apt.llvm.org/llvm.sh
+   chmod +x llvm.sh
+   sudo ./llvm.sh 21 all
+   ```
+   Ensure the binaries are discovered as `clang`, `clang++`, `lld`, `llvm-ar` on `PATH`:
+   ```bash
+   sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-21 100 \
+       --slave /usr/bin/clang++ clang++ /usr/bin/clang++-21 \
+       --slave /usr/bin/lld lld /usr/bin/lld-21 \
+       --slave /usr/bin/llvm-ar llvm-ar /usr/bin/llvm-ar-21 \
+       --slave /usr/bin/llvm-nm llvm-nm /usr/bin/llvm-nm-21 \
+       --slave /usr/bin/llvm-readelf llvm-readelf /usr/bin/llvm-readelf-21
+   ```
+
+4. **Verify the environment:**
+   ```bash
+   ./bin/oops doctor
+   ```
+
+### Linux (Arch Linux)
+
+```bash
+sudo pacman -S git base-devel clang lld llvm python rustup curl
+rustup default stable
+./bin/oops doctor
+```
+
+### Linux (Fedora)
+
+```bash
+sudo dnf install -y git make gcc clang lld llvm python3 rust cargo curl
+./bin/oops doctor
+```
+
+### Windows (Native)
+
+Building on Windows runs natively with standard command-line tools.
+
+1. **Git and POSIX utilities:**
+   Install Git for Windows from [git-scm.com](https://git-scm.com/) or via `winget`:
+   ```powershell
+   winget install Git.Git
+   ```
+   Git Bash provides standard POSIX utilities (`sh`, `find`, `grep`, `sed`, `awk`, `tr`) under
+   `C:\Program Files\Git\usr\bin`.
+
+2. **Rust:**
+   Install Rust via `winget` or download `rustup-init.exe` from [rustup.rs](https://rustup.rs/):
+   ```powershell
+   winget install Rustlang.Rustup
+   rustup default stable
+   ```
+
+3. **GNU Make (Windows-native binary):**
+   Install a native Windows GNU Make 4.4+ (e.g. via Chocolatey or unpacked to `X:\toolchains\make`):
+   ```powershell
+   choco install make -y
+   ```
+   *Do not use an MSYS or Cygwin make.* The makefiles derive source paths using `$(CURDIR)`,
+   which must produce Windows drive paths (`C:/...`) that `clang.exe` can open rather than
+   Unix-style mounts (`/c/...`).
+
+4. **Clang 21 and LLVM tools:**
+   Unpack portable LLVM 21 release binaries to a local directory (e.g. `X:\toolchains\llvm21`).
+   Ensure `clang.exe`, `clang++.exe`, `lld.exe`, `llvm-ar.exe`, `llvm-nm.exe`, and
+   `llvm-readelf.exe` are present in its `bin` directory.
+
+5. **Python 3:**
+   ```powershell
+   winget install Python.Python.3.14
+   ```
+
+6. **Environment activation:**
+   Activate the toolchain for your shell session:
+   - PowerShell:
+     ```powershell
+     . X:\toolchains\paths.ps1
+     ```
+   - Command Prompt (CMD):
+     ```cmd
+     call X:\toolchains\paths.cmd
+     ```
+
+7. **Verify the environment:**
+   ```powershell
+   bash bin/oops doctor
+   ```
+
+## Parallel builds
+
+Makefiles in the collection automatically detect available logical processors on both Linux
+and Windows. When no `-j` flag is specified on the command line, GNU Make defaults to
+two-thirds of the host's logical cores (`MAKEFLAGS += -j<N>`, e.g. 21 workers on a 32-thread
+machine) to maximize compilation throughput while keeping the system responsive. Passing
+`-j<N>` explicitly overrides this default.
+
+## Building applications and titles
+
+The exact same command builds an application on both Linux and Windows:
+
+```bash
+cd oops-apps/src/oops-titles/ship-of-harkinian
+make SOH_ARMED=1
+```
+
+For native Windows builds, `common/deps.mk` automatically writes long object lists to
+response files (`@file`) to prevent exceeding the Windows command line character limit
+(32,767 characters). The same response file mechanism runs on Linux.
 
 ## One set of verbs
 
@@ -45,7 +189,6 @@ The rest are `bin/oops` only, because they concern the collection:
 | `git <args...>` | run any git command in the root and every member |
 | `status` | branch and working-tree state of each repository |
 | `doctor` | whether this machine can build the collection |
-| `setup` | install a build toolchain; on Windows this is the WSL fallback, for a machine with no local clang |
 | `exec "<cmd>" [project...]` | run a command in each project |
 | `list` | the members and whether each is present |
 | `tracer <titleid>` | capture a title's shaders on hardware and rank the shader translator's gaps |
@@ -77,48 +220,6 @@ No project builds from a clone of its own repository alone. Each project's own b
 [oops-libs](https://github.com/project-oops/oops-libs/blob/main/README.md#building),
 [oops-sdk](https://github.com/project-oops/oops-sdk/blob/main/docs/BUILDING.md),
 [oops-apps](https://github.com/project-oops/oops-apps#building-an-app).
-
-## Windows, and why obSCEne is different
-
-The Rust projects build anywhere. obSCEne, oops-sdk, oops-apps and oops-mesa compile
-freestanding C for the target with `clang` and `lld` (CONVENTIONS section 8).
-
-**Prefer a local clang 21 on `PATH`.** Unpack a portable LLVM 21 somewhere and put its `bin`
-on `PATH` for the shell you build in; nothing is installed system-wide and `toolchain.mk`
-checks the version as it would anywhere else. This is not a convenience - it is the
-difference between a build that takes minutes and one that takes a quarter of an hour. Both
-of the alternatives below reach the sources across a filesystem boundary, and a single
-header read measured about 10ms that way against about 1ms locally. A build of a title
-carrying libultraship opens hundreds of thousands of files, so that per-file latency *is*
-the build time.
-
-Two things a native Windows build needs that a Linux one does not, both already handled in
-`oops-apps`:
-
-- **Response files.** The payload link names every object - 102,065 characters for Ship of
-  Harkinian, against Windows' 32,767 command-line limit. `common/deps.mk`'s `oops_rsp`
-  writes the list with `$(file ...)` and passes `@file`, which `clang`, `ld.lld` and
-  `llvm-ar` all read. It is used on every host, so there is one code path rather than two
-  that can disagree.
-- **A Windows-native `make`**, not an MSYS one. Every path in `common/*.mk` is derived from
-  `$(MAKEFILE_LIST)` or `$(CURDIR)`, so they all follow whatever form make reports; a
-  Windows make gives Windows paths that `clang.exe` can open, while an MSYS make gives
-  `/c/...`, which it cannot.
-
-Without a local clang, `bin/oops` runs those four repositories through WSL; `OOPS_NO_WSL=1`
-refuses instead. `oops doctor` reports whether WSL has a distribution with clang in it. WSL
-is the last resort, kept for machines that have neither a local toolchain nor a container.
-
-`./bin/oops setup` (`tools/setup-wsl.sh`) registers a WSL distribution named `oops-builder`
-from the Ubuntu image, runs it as root, and installs the toolchain in it. It installs only what
-is missing, so it can be rerun, and `--dry-run` prints what it would do. On Linux it installs
-the same packages directly. `wsl --unregister oops-builder` removes the distribution.
-`WSL_DISTRO` names another distribution to build in, whose configuration is left alone.
-
-Both scripts choose a distribution by one rule: `WSL_DISTRO`, else `oops-builder`, else WSL's
-default when it is a usable one, else the first usable one. Container runtimes' own
-distributions (Docker Desktop, Rancher, podman) are never used, and Docker Desktop can be
-WSL's default.
 
 ## In CI
 
