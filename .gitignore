@@ -15,3 +15,4 @@ desktop.ini
 /*.s
 /*.o
 /test_eboot*.bin
+/scratch/
