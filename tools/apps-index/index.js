@@ -112,7 +112,7 @@
 
   function kinds() {
     var seen = {};
-    APPS.forEach(function (a) { if (a.kind) seen[a.kind] = true; });
+    APPS.forEach(function (a) { if (a.kind) seen[String(a.kind).toLowerCase()] = true; });
     return Object.keys(seen).sort();
   }
 
@@ -145,44 +145,74 @@
     return l;
   }
 
+  function hashForFilters(k, s) {
+    var hasK = k && k !== "all";
+    var hasS = s && s !== "all";
+    if (hasK && hasS) return k + "/" + s;
+    if (hasK) return k;
+    if (hasS) return s;
+    return "";
+  }
+
+  function updateFilterButtons() {
+    Array.prototype.forEach.call(filters.children, function (ch) {
+      ch.setAttribute("aria-selected", ch.dataset.kind === activeKind ? "true" : "false");
+    });
+    Array.prototype.forEach.call(statusFilters.children, function (ch) {
+      ch.setAttribute("aria-selected", ch.dataset.status === activeStatus ? "true" : "false");
+    });
+  }
+
+  function setFilter(k, s) {
+    var h = hashForFilters(k, s);
+    var cur = (location.hash || "").replace(/^#\/?/, "");
+    if (cur === h) return;
+    if (h) {
+      location.hash = h;
+    } else {
+      if (history.pushState) {
+        history.pushState(null, "", location.pathname + location.search);
+      } else {
+        location.hash = "";
+      }
+    }
+    applyHash();
+  }
+
   function buildFilters() {
+    filters.innerHTML = "";
     var all = ["all"].concat(kinds());
     all.forEach(function (k) {
       var b = el("button", "chip");
       b.textContent = k === "all" ? "All" : k;
       b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", k === activeKind ? "true" : "false");
+      b.dataset.kind = k;
       b.addEventListener("click", function () {
-        activeKind = k;
-        Array.prototype.forEach.call(filters.children, function (ch) {
-          ch.setAttribute("aria-selected", ch === b ? "true" : "false");
-        });
-        render();
+        setFilter(k, activeStatus);
       });
       filters.appendChild(b);
     });
   }
 
   function buildStatusFilters() {
+    statusFilters.innerHTML = "";
     var all = ["all"].concat(statuses());
     all.forEach(function (s) {
       var b = el("button", "chip");
       b.textContent = s === "all" ? "Any readiness" : STATUS_META[s].label;
       b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", s === activeStatus ? "true" : "false");
+      b.dataset.status = s;
       b.addEventListener("click", function () {
-        activeStatus = s;
-        Array.prototype.forEach.call(statusFilters.children, function (ch) {
-          ch.setAttribute("aria-selected", ch === b ? "true" : "false");
-        });
-        render();
+        setFilter(activeKind, s);
       });
       statusFilters.appendChild(b);
     });
   }
 
   function matches(app) {
-    if (activeKind !== "all" && app.kind !== activeKind) return false;
+    if (activeKind !== "all" && String(app.kind || "").toLowerCase() !== activeKind) return false;
     if (activeStatus !== "all" && statusOf(app) !== activeStatus) return false;
     if (!query) return true;
     var hay = (app.title + " " + app.name + " " + app.subtitle).toLowerCase();
@@ -222,7 +252,10 @@
 
   /* ---- detail ---- */
 
-  function openDetail(app) {
+  var currentOpenApp = null;
+
+  function openDetail(app, fromHash) {
+    currentOpenApp = app;
     detail.innerHTML = "";
 
     var head = el("div", "detail-head");
@@ -307,10 +340,14 @@
     document.body.style.overflow = "hidden";
     document.getElementById("close").focus();
     /* Reflect the open card in the URL so it can be linked or refreshed to. */
-    try {
-      history.replaceState(null, "", "#" + encodeURIComponent(app.name));
-    } catch (e) {
-      location.hash = encodeURIComponent(app.name);
+    if (!fromHash) {
+      var f = hashForFilters(activeKind, activeStatus);
+      var target = (f ? f + "/" : "") + encodeURIComponent(app.name);
+      try {
+        history.replaceState(null, "", "#" + target);
+      } catch (e) {
+        location.hash = target;
+      }
     }
   }
 
@@ -337,21 +374,31 @@
     });
   }
 
-  function closeDetail() {
+  function closeDetail(fromHash) {
     overlay.hidden = true;
     document.body.style.overflow = "";
-    /* Drop the card fragment so the URL is the plain index again. */
-    if (location.hash) {
-      try {
-        history.replaceState(null, "", location.pathname + location.search);
-      } catch (e) {
-        location.hash = "";
+    currentOpenApp = null;
+    /* Restore the active filter fragment or clear the hash if viewing all. */
+    if (!fromHash) {
+      var f = hashForFilters(activeKind, activeStatus);
+      if (f) {
+        try {
+          history.replaceState(null, "", "#" + f);
+        } catch (e) {
+          location.hash = f;
+        }
+      } else if (location.hash) {
+        try {
+          history.replaceState(null, "", location.pathname + location.search);
+        } catch (e) {
+          location.hash = "";
+        }
       }
     }
   }
 
-  /* Hash routing: `#<app-name>` deep-links a card's detail, so a link like
-   * project-oops.github.io/oops-apps/#gl1-cube opens straight to that card. */
+  /* Hash routing: `#<app-name>`, `#<kind>`, `#<status>`, and `#<kind>/<status>`
+   * (e.g. `#game`, `#playable`, `#game/playable`, `#2-ship-2-harkinian`). */
   function appByName(name) {
     var want = String(name).toLowerCase();
     for (var i = 0; i < APPS.length; i++) {
@@ -360,21 +407,71 @@
     return null;
   }
 
-  function openFromHash() {
-    var name = decodeURIComponent((location.hash || "").replace(/^#/, ""));
-    var app = name ? appByName(name) : null;
-    if (app) openDetail(app);
-    else if (!overlay.hidden) closeDetail();
+  function parseHash(raw) {
+    if (!raw) {
+      return { kind: "all", status: "all", app: null };
+    }
+    var parts = raw.split("/").map(function (p) {
+      return p.trim().toLowerCase();
+    }).filter(Boolean);
+
+    var knownKinds = kinds();
+    var parsedKind = null;
+    var parsedStatus = null;
+    var parsedApp = null;
+
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (!parsedStatus && STATUS_META[p]) {
+        parsedStatus = p;
+      } else if (!parsedKind && (p === "all" || knownKinds.indexOf(p) !== -1)) {
+        parsedKind = p;
+      } else {
+        var app = appByName(p);
+        if (app && !parsedApp) {
+          parsedApp = app;
+        }
+      }
+    }
+
+    return {
+      kind: parsedKind || "all",
+      status: parsedStatus || "all",
+      app: parsedApp
+    };
   }
 
-  document.getElementById("close").addEventListener("click", closeDetail);
+  function applyHash(force) {
+    var raw = decodeURIComponent((location.hash || "").replace(/^#\/?/, "")).trim();
+    var parsed = parseHash(raw);
+
+    var filtersChanged = (parsed.kind !== activeKind || parsed.status !== activeStatus);
+    if (filtersChanged || force) {
+      activeKind = parsed.kind;
+      activeStatus = parsed.status;
+      updateFilterButtons();
+      render();
+    }
+
+    if (parsed.app) {
+      if (currentOpenApp !== parsed.app || overlay.hidden) {
+        openDetail(parsed.app, true);
+      }
+    } else {
+      if (!overlay.hidden) {
+        closeDetail(true);
+      }
+    }
+  }
+
+  document.getElementById("close").addEventListener("click", function () { closeDetail(); });
   overlay.addEventListener("click", function (e) {
     if (e.target === overlay) closeDetail();
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !overlay.hidden) closeDetail();
   });
-  window.addEventListener("hashchange", openFromHash);
+  window.addEventListener("hashchange", function () { applyHash(); });
 
   search.addEventListener("input", function () {
     query = search.value.trim().toLowerCase();
@@ -389,6 +486,5 @@
   /* ---- go ---- */
   buildFilters();
   buildStatusFilters();
-  render();
-  openFromHash();
+  applyHash(true);
 })();
