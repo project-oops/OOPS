@@ -43,6 +43,6 @@ organisation's `.github` repository, which a workflow token cannot.
 ## Setup
 
 `setup-wsl.sh` (`./bin/oops setup`) makes a machine able to build the C repositories; see
-[BUILDING.md](../docs/BUILDING.md#windows-wsl-and-why-obscene-is-different).
+[BUILDING.md](../docs/BUILDING.md).
 `OOPS_WSL_NAME`, `OOPS_WSL_IMAGE` and `OOPS_WSL_LOCATION` change the distribution's name,
 image and disk location.
